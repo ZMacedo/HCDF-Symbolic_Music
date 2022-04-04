@@ -171,12 +171,15 @@ def kern2midi(path):
                             midi = ConvertMidi
         elif dirs == 'Mozart':
             for subdirs in os.walk(dirs):
-                for subsubdirs == "Krn":
-                    if files.endswith('.mid'):
-                        for i, track in enumerate(mid.tracks):
-                            mid = mido.MidiFile(files, clip=True)
-                            mid.tracks
-                            #midi_path.append(os.path.join('.',path, file))
+                for subsubdirs in subdirs:
+                    for subsubdirs in os.walk(subdirs):
+                        if files.endswith('.mid'):
+                            for i, track in enumerate(mid.tracks):
+                                mid = mido.MidiFile(files, clip=True)
+                                mid.tracks
+                                #midi_path.append(os.path.join('.',path, file))
+        
+    return midi
     
 # #To MIDI files and piano rolls
 class MIDI:
@@ -202,7 +205,7 @@ class MIDI:
         return self.__File
 
     def MIDI_INFO(self):
-        def Total_Ticks(self):
+        def total_Ticks(self):
             midi_file = MidiFile(self.__path)  # Read the file
             Ticks = 0
 
@@ -219,9 +222,113 @@ class MIDI:
             self.__Ticks = Ticks
 
         # Total time of MIDI file
-        def Total_Time_MIDI_File(self):
+        def total_Time_MIDI_File(self):
             midi_file = MidiFile(self.__path)
             Ticks_per_Beat = midi_file.ticks_per_beat
             self.__File = int((self.__Ticks / Ticks_per_Beat)
                               * self.__quantization)
+            
+        def get_pitch_range(self):
+            mid = MidiFile(self.__song_path)
+            min_pitch = 200
+            max_pitch = 0
+            for i, track in enumerate(mid.tracks):
+                for message in track:
+                    if message.type in ['note_on', 'note_off']:
+                        pitch = message.note
+                        if pitch > max_pitch:
+                            max_pitch = pitch
+                        if pitch < min_pitch:
+                            min_pitch = pitch
+            return min_pitch, max_pitch
+        
+        def read_file(self):
+            # Read the midi file and return a dictionnary {track_name : pianoroll}
+            mid = MidiFile(self.__song_path)
+            # Tick per beat
+            ticks_per_beat = mid.ticks_per_beat
 
+            # Get total time
+            self.get_time_file()
+            T_pr = self.__T_file
+            # Pitch dimension
+            N_pr = 128
+            pianoroll = {}
+
+            def add_note_to_pr(note_off, notes_on, pr):
+                pitch_off, _, time_off = note_off
+                # Note off : search for the note in the list of note on,
+                # get the start and end time
+                # write it in th pr
+                match_list = [(ind, item) for (ind, item) in enumerate(notes_on) if item[0] == pitch_off]
+                if len(match_list) == 0:
+                    print("Try to note off a note that has never been turned on")
+                    # Do nothing
+                    return
+
+                # Add note to the pr
+                pitch, velocity, time_on = match_list[0][1]
+                pr[time_on:time_off, pitch] = velocity
+                # Remove the note from notes_on
+                ind_match = match_list[0][0]
+                del notes_on[ind_match]
+                return
+
+            # Parse track by track
+            counter_unnamed_track = 0
+            for i, track in enumerate(mid.tracks):
+                # Instanciate the pianoroll
+                pr = np.zeros([T_pr, N_pr])
+                time_counter = 0
+                notes_on = []
+                for message in track:
+
+                    ##########################################
+                    ##########################################
+                    ##########################################
+                    # TODO : keep track of tempo information
+                    # import re
+                    # if re.search("tempo", message.type):
+                    #     import pdb; pdb.set_trace()
+                    ##########################################
+                    ##########################################
+                    ##########################################
+
+
+                    # print message
+                    # Time. Must be incremented, whether it is a note on/off or not
+                    time = float(message.time)
+                    time_counter += time / ticks_per_beat * self.__quantization
+                    # Time in pr (mapping)
+                    time_pr = int(round(time_counter))
+                    # Note on
+                    if message.type == 'note_on':
+                        # Get pitch
+                        pitch = message.note
+                        # Get velocity
+                        velocity = message.velocity
+                        if velocity > 0:
+                            notes_on.append((pitch, velocity, time_pr))
+                        elif velocity == 0:
+                            add_note_to_pr((pitch, velocity, time_pr), notes_on, pr)
+                    # Note off
+                    elif message.type == 'note_off':
+                        pitch = message.note
+                        velocity = message.velocity
+                        add_note_to_pr((pitch, velocity, time_pr), notes_on, pr)
+
+                # We deal with discrete values ranged between 0 and 127
+                #     -> convert to int
+                pr = pr.astype(np.int16)
+                if np.sum(np.sum(pr)) > 0:
+                    name = unidecode(track.name)
+                    name = name.rstrip('\x00')
+                    if name == u'':
+                        name = 'unnamed' + str(counter_unnamed_track)
+                        counter_unnamed_track += 1
+                    if name in pianoroll.keys():
+                        # Take max of the to pianorolls
+                        pianoroll[name] = np.maximum(pr, pianoroll[name])
+                    else:
+                        pianoroll[name] = pr
+            return pianoroll
