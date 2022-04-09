@@ -19,16 +19,19 @@ import matplotlib.pyplot as plt
 
 #2 - Create Pitch Class Profile Vector
 #NNLS
-def get_NNLS(MIDI_path):
+chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
+def get_NNLS(chroma_path):
     chroma = []
-    for subdir, dirs, files in os.walk(MIDI_path):
-        for file in files:
-            midi_object, rate = pm.csv_to_midi('chroma-nnls_orchestra_romantic.csv')
-            chroma = vampy.collect(midi_object, rate, "nnls-chroma:nnls-chroma")
+    for files in os.walk(chroma_path):
+        with open(files, 'r') as file:
+            midi_object, rate = pm.csv_to_midi(file)
+            chroma_element = vampy.collect(midi_object, rate, "nnls-chroma:nnls-chroma")
             #chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
+            
             stepsize, chromadata = chroma["matrix"]
             plt.imshow(chromadata)
             plt.show()
+            chroma.append(chroma_element)
     
     chroma_bins = []
     for c_bins in chroma:

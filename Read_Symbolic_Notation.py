@@ -81,7 +81,7 @@ def read_csvfile(path, file_name):
             print(row)
     return file
 
-#path = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
+path = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
 def time_info(path):
     time = []
     file = convert_to_csv(path, dict1[2])
@@ -113,8 +113,8 @@ def midi2csv(path):
                 w = csv.writer(csv)
                 for file in files:
                     current = os.path.join(path,file)
-                    if files.endswith(".mid"):
-                        csv = pm.midi_to_csv(files)
+                    if file.endswith(".mid"):
+                        csv = pm.midi_to_csv(file)
                         midi_notes = os.path.relpath(current,path).split(os.sep)
                         w.writerow(midi_notes)
     
@@ -123,6 +123,7 @@ def midi2csv(path):
 def csv2midi(path):
     midi_path = []
     midi_new_path = []
+    final_midi_path = []
     for roots, dirs, files in os.walk(path):
         for files in dirs:
             if files.startswith("chords"):
@@ -133,11 +134,13 @@ def csv2midi(path):
                     midi_new_path.append(os.path.join('.',path, m))
                     midi_writer = pm.FileWriter(output_midi_file)
                     midi_writer.write(midi)
+                    final_midi_path.append(os.path.join('.', midi_new_path, midi_writer))
     
-    return midi
+    return np.array(final_midi_path)
 
 #path = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/TAVERN_Dataset'
 def kern_midiFile(path):
+    midi_path = []
     for roots, dirs, files in os.walk(path):
         if dirs == "Beethoven":
             for subdirs in os.walk(dirs):
@@ -147,7 +150,7 @@ def kern_midiFile(path):
                             for i, track in enumerate(mid.tracks):
                                 mid = mido.MidiFile(files, clip=True)
                                 mid.tracks
-                                #midi_path.append(os.path.join('.',path, file))
+                                midi_path.append(os.path.join('.',path, file))
         elif dirs == 'Mozart':
             for subdirs in os.walk(dirs):
                 if subdirs == "Krn":
@@ -156,9 +159,9 @@ def kern_midiFile(path):
                             for i, track in enumerate(mid.tracks):
                                 mid = mido.MidiFile(files, clip=True)
                                 mid.tracks
-                                #midi_path.append(os.path.join('.',path, file))
+                                midi_path.append(os.path.join('.',path, file))
     
-    return midi
+    return np.array(midi_path)
 
 def kern2midi(path):
     midi_path = []
@@ -168,21 +171,21 @@ def kern2midi(path):
                 for subsubdirs in os.walk(subdirs):
                     if subsubdirs == "Krn":
                         if files.endswith('.krn'):
-                            midi = ConvertMidi
+                            midi = ConvertMidi(files)
+                            midi_path.append(os.path.join('.',path, midi))
         elif dirs == 'Mozart':
             for subdirs in os.walk(dirs):
                 for subsubdirs in subdirs:
                     for subsubdirs in os.walk(subdirs):
-                        if files.endswith('.mid'):
-                            for i, track in enumerate(mid.tracks):
-                                mid = mido.MidiFile(files, clip=True)
-                                mid.tracks
-                                #midi_path.append(os.path.join('.',path, file))
+                        if subsubdirs == "Krn":
+                            if files.endswith('.krn'):
+                                midi = ConvertMidi(files)
+                                midi_path.append(os.path.join('.',path, midi))
         
-    return midi
+    return np.array(midi_path)
     
 # #To MIDI files and piano rolls
-class MIDI:
+class Info_MIDI(object):
     def __init__(self, path, quantization):
         # MIDI Metadata
         self.__path = path
@@ -204,8 +207,7 @@ class MIDI:
     def File(self):
         return self.__File
 
-    def MIDI_INFO(self):
-        def total_Ticks(self):
+    def total_Ticks(self):
             midi_file = MidiFile(self.__path)  # Read the file
             Ticks = 0
 
@@ -222,13 +224,13 @@ class MIDI:
             self.__Ticks = Ticks
 
         # Total time of MIDI file
-        def total_Time_MIDI_File(self):
+    def total_Time_MIDI_File(self):
             midi_file = MidiFile(self.__path)
             Ticks_per_Beat = midi_file.ticks_per_beat
             self.__File = int((self.__Ticks / Ticks_per_Beat)
                               * self.__quantization)
             
-        def get_pitch_range(self):
+    def get_pitch_range(self):
             mid = MidiFile(self.__song_path)
             min_pitch = 200
             max_pitch = 0
@@ -242,9 +244,14 @@ class MIDI:
                             min_pitch = pitch
             return min_pitch, max_pitch
         
-        def read_file(self):
+    def read_file(self, path):
             # Read the midi file and return a dictionnary {track_name : pianoroll}
-            mid = MidiFile(self.__song_path)
+            for roots, dirs, files in os.walk(path):
+                for file in files:
+                    if file.endswith(".csv"):
+                        mid = csv2midi(path)
+                    elif file.endswith(".krn"):
+                        mid = kern2midi(path)
             # Tick per beat
             ticks_per_beat = mid.ticks_per_beat
 

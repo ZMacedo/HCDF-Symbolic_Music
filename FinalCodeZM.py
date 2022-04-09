@@ -42,12 +42,12 @@ from HCDF_Macedo import *
     #5 - Calculate HCDF
     #6 - Obtain results
     
-path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset"
-time = time_info(path)
-chords = chord_info(path)
+# path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset"
+# time = time_info(path)
+# chords = chord_info(path)
 
 chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
-NNLS = get_NNLS(chroma_path)
+#NNLS = get_NNLS(chroma_path)
 
 #3 - We will need a class for everything related with TIS/TIV, largely based on TIVlib (Ramires, António, et al. "TIV. lib: an open-source library for the tonal description of musical audio." arXiv preprint arXiv:2008.11529 (2020).)
 class TonalIntervalVector:
@@ -90,12 +90,6 @@ class TonalIntervalVector:
 
     def tone(self): #Define wholetoneness
         return self.abs_vector()[5] / self.weights_symbolic[5]
-
-def everything_is_zero(vector):
-    for element in vector:
-        if element != 0:
-            return False
-    return True 
     
     # @classmethod
     # def from_pcp(cls, pcp):
@@ -165,14 +159,14 @@ def everything_is_zero(vector):
     def cosine(cls, tiv1, tiv2):
         a = np.concatenate((tiv1.vector.real, tiv1.vector.imag), axis=0)
         b = np.concatenate((tiv2.vector.real, tiv2.vector.imag), axis=0)
-        if everything_is_zero(a) or everything_is_zero(b):
+        if all_zero(a) or all_zero(b):
             distance_computed = euclidean(a, b)
         else:
             distance_computed = cosine(a, b)
         return distance_computed
 
 #Now we will need to take information from TIS. So we will need some additional functions
-def everything_is_zero(vector):
+def all_zero(vector):
     for element in vector:
         if element != 0:
             return False
@@ -195,7 +189,7 @@ def TonalIntervalSpace(chroma, symbolic=True):
     for i in range(0, chroma.shape[1]):
         each_chroma = [chroma[j][i] for j in range(0, chroma.shape[0])]
         # print(each_chroma)
-        if everything_is_zero(each_chroma):
+        if all_zero(each_chroma):
             centroid = [0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j]
         else:
             tonal = TonalIntervalVector.from_pcp(each_chroma, symbolic)
@@ -222,3 +216,26 @@ def distance_calc(centroid_point, distance):
 
     return np.array(dist)
             
+beatles = mirdata.initialize('beatles')
+#beatles.download()
+#beatles.validate()
+beatles.choice_track().chords
+track = beatles.load_tracks()
+matrix_MIDI = Info_MIDI(track, 28).read_file(path) #We have to discover the best sigma value (for audio is 28)
+mat = list(matrix_MIDI.values())
+midi_quartet = mat[0] + mat[1] + mat[2] + mat[3]
+midi_quartet.shape
+
+np.set_printoptions(threshold=sys.maxsize)
+
+chroma_quartets = midi2chroma(midi_quartet)
+
+changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_quartets, symbolic=True,
+                         sigma=28, dist='euclidean')
+changes
+
+changes_ground_truth = np.array([c['time'] for c in track.chords])
+changes_ground_truth
+
+f_measure, precision, recall = mir_eval.onset.f_measure(changes_ground_truth, changes, window=31.218) #same window than Harte
+f_measure, precision, recall
