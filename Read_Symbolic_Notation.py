@@ -74,17 +74,21 @@ def convert_to_csv(path_to_file, file_name):
     return path_to_file
             
 def read_csvfile(path, file_name):
-    file = convert_to_csv(path, file_name)
-    with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore') as csvfile:
-        reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
-        for row in reader:
-            print(row)
+    for files in os.walk(path):
+        for file in files:
+            if file.endswith != '.csv':
+                file = convert_to_csv(path, file_name)
+            else:
+              with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore') as csvfile:
+                reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+                for row in reader:
+                  print(row)
     return file
 
-path = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
-def time_info(path):
+path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
+def time_info(path_info):
     time = []
-    file = convert_to_csv(path, dict1[2])
+    file = convert_to_csv(path_info, dict1[2])
     print(file)
     with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore'):
         reader = csv.reader(file, delimiter=' ', quotechar='|')
@@ -96,9 +100,9 @@ def time_info(path):
     return np.array(time)
 
 
-def chord_info(path):
+def chord_info(path_info):
     chords = []
-    csv_reader_chords = read_csvfile(path, dict1[2])
+    csv_reader_chords = read_csvfile(path_info, dict1[2])
 
     for row in csv_reader_chords:
         chords.append(str(row[2]))
@@ -134,14 +138,15 @@ def csv2midi(path):
                     midi_new_path.append(os.path.join('.',path, m))
                     midi_writer = pm.FileWriter(output_midi_file)
                     midi_writer.write(midi)
+                    
                     final_midi_path.append(os.path.join('.', midi_new_path, midi_writer))
     
-    return np.array(final_midi_path)
+    return midi_writer
 
-#path = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/TAVERN_Dataset'
-def kern_midiFile(path):
+path_kern = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/TAVERN_Dataset'
+def kern_midiFile(path_kern):
     midi_path = []
-    for roots, dirs, files in os.walk(path):
+    for roots, dirs, files in os.walk(path_kern):
         if dirs == "Beethoven":
             for subdirs in os.walk(dirs):
                 for subsubdirs in os.walk(subdirs):
@@ -163,7 +168,7 @@ def kern_midiFile(path):
     
     return np.array(midi_path)
 
-def kern2midi(path):
+def kern2midi(path_kern):
     midi_path = []
     for roots, dirs, files in os.walk(path):
         if dirs == "Beethoven":
@@ -182,7 +187,7 @@ def kern2midi(path):
                                 midi = ConvertMidi(files)
                                 midi_path.append(os.path.join('.',path, midi))
         
-    return np.array(midi_path)
+    return midi
     
 # #To MIDI files and piano rolls
 class Info_MIDI(object):
@@ -246,6 +251,7 @@ class Info_MIDI(object):
         
     def read_file(self, path):
             # Read the midi file and return a dictionnary {track_name : pianoroll}
+            mid = MidiFile(self.__song_path)
             for roots, dirs, files in os.walk(path):
                 for file in files:
                     if file.endswith(".csv"):

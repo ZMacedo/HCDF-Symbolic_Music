@@ -6,8 +6,8 @@ Created on Thu Mar 17 11:24:04 2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
-# from scipy.ndimage import gaussian_filter
-# from astropy.convolution import convolve, Gaussian1DKernel
+from scipy.ndimage import gaussian_filter
+from astropy.convolution import convolve, Gaussian1DKernel
 from scipy.spatial.distance import cosine, euclidean
 np.seterr(all='raise')
 
@@ -18,7 +18,6 @@ import mirdata
 import os
 import sys
 import py_midicsv as pm
-from TIVlib import TIV
 import glob
 import csv
 import json
@@ -219,18 +218,18 @@ def distance_calc(centroid_point, distance):
 beatles = mirdata.initialize('beatles')
 #beatles.download()
 #beatles.validate()
-beatles.choice_track().chords
 track = beatles.load_tracks()
+#beatles.choice_track().chords
 matrix_MIDI = Info_MIDI(track, 28).read_file(path) #We have to discover the best sigma value (for audio is 28)
 mat = list(matrix_MIDI.values())
-midi_quartet = mat[0] + mat[1] + mat[2] + mat[3]
-midi_quartet.shape
+midi_mat = mat[0] + mat[1] + mat[2] + mat[3]
+midi_mat.shape
 
 np.set_printoptions(threshold=sys.maxsize)
 
-chroma_quartets = midi2chroma(midi_quartet)
+chroma_mat = midi2chroma(midi_mat)
 
-changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_quartets, symbolic=True,
+changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_mat, symbolic=True,
                          sigma=28, dist='euclidean')
 changes
 
