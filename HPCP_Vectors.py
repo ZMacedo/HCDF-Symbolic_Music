@@ -4,6 +4,7 @@ Created on Thu Mar 24 15:57:55 2022
 
 @author: José Macedo
 """
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 # from scipy.ndimage import gaussian_filter
@@ -19,6 +20,7 @@ import py_midicsv as pm
 
 #2 - Create Pitch Class Profile Vector
 #NNLS
+#chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
 def midi2chroma(MIDI_file):
     chroma = np.zeros((MIDI_file.shape[0], 12))
     for i, MIDI_frame in enumerate(MIDI_file):
@@ -26,54 +28,59 @@ def midi2chroma(MIDI_file):
             chroma[i][j % 12] += frame
     return chroma
 
-chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
+chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/JAAH_features"
 def get_NNLS(chroma_path):
-    chroma = []
-    for files in os.walk(chroma_path):
-        with open(files, 'r') as file:
-            midi_object = pm.csv_to_midi(file)
-            #midi_object
-            data, rate = librosa.load(midi_object)
-            chroma = vampy.collect(data, rate, "nnls-chroma:nnls-chroma")
-            chroma
-            #chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
-            stepsize, chromadata = chroma["Chroma_Vector"]
-            plt.imshow(chromadata)
-            plt.show()
-            
-            chroma.append(chroma)
+    chroma_vector = []
+    global csv
+    file_list = os.listdir(chroma_path)
+    #print(file_list)
+    for file in file_list:
+        if file.endswith('.csv') in file_list:
+            with open(file, 'r') as csv_file:
+                #csv = csv.reader(csv_file)
+                midi_object = map(int,pm.csv_to_midi(csv_file))
+                data, rate = librosa.load(midi_object)
+                chroma = vampy.collect(data, rate, "nnls-chroma:nnls-chroma")
+                #chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
+                stepsize, chromadata = chroma["Chroma"]
+                plt.imshow(chromadata)
+                plt.show()
+                chroma_vector.append(chroma)
     
     chroma_bins = []
-    for c_bins in chroma:
+    for c_bins in chroma_vector:
         chroma_bins.append(c_bins['Chroma Values from NNLS'].tolist())
         
         print(chroma_bins)
-    return np.array(chroma_bins), np.array(chroma)
+    return np.array(chroma_bins), np.array(chroma_vector)
+
+get_NNLS(chroma_path)
 
 def get_NNLS_midi2chroma(chroma_path):
     chroma_vector = []
-    for files in os.walk(chroma_path):
-        with open(files, 'r') as file:
-            midi_object = pm.csv_to_midi(file)
-            chroma = midi2chroma(midi_object)
-            #print(chroma)
-            chroma_vector.append(chroma)
+    for files in os.listdir(chroma_path):
+        for file in files:
+            with open(file, 'r') as csv:
+                midi_object = pm.csv_to_midi(csv)
+                chroma = midi2chroma(midi_object)
+                #print(chroma)
+                chroma_vector.append(chroma)
     return np.array(chroma_vector)
 
 def get_NNLS_STFT(chroma_path):
     chroma_vector = []
     for files in os.walk(chroma_path):
-        with open(files, 'r') as file:
-            midi_object = pm.csv_to_midi(file)
-            y, sr = librosa.load(midi_object)
-            chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-            print(chroma)
-            chroma_vector.append(chroma)
+        #print(files)
+        for file in files:
+            with open(file, 'r') as csv:
+                midi_object = pm.csv_to_midi(csv)
+                y, sr = librosa.load(midi_object)
+                chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+                print(chroma)
+                chroma_vector.append(chroma)
     return np.array(chroma_vector)
 
-get_NNLS('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls')
-get_NNLS_midi2chroma('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls')
-get_NNLS_STFT('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls')
+get_NNLS(chroma_path)
 
 # def get_hpcp(x, sr, n_bins=12, f_min=55, f_ref=440.0, min_magn=-100):
 #     #Based on code from https://python.hotexamples.com/pt/examples/vamp/-/collect/python-collect-function-examples.html
@@ -103,4 +110,3 @@ get_NNLS_STFT('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Dataset
 #     t = float(vamp_hop) * (8 + np.arange(len(hpcp)))
     
 #     return t, hpcp
-

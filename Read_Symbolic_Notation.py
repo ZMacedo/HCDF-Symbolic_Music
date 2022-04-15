@@ -10,11 +10,13 @@ from mido import MidiFile
 import os
 import py_midicsv as pm
 import numpy as np
+import openpyxl
 from music21 import *
+import glob
 from unidecode import unidecode
 np.seterr(all='raise')
 
-dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
+#dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
 
 # 1 - Read symbolic inputs (or .csv files with annotations)
 # def load_dataset():
@@ -50,11 +52,11 @@ dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5
                 
 def convert_to_csv(path_to_file, file_name):
             
-    if file_name.endswith('xlsx'):
+    if file_name.endswith('.xlsx'):
         read_file = pd.read_excel(path_to_file, engine='openpyxl')
-    elif file_name.endswith('xls'):
+    elif file_name.endswith('.xls'):
         read_file = pd.read_excel(path_to_file)
-    elif file_name.endswith('csv'):
+    elif file_name.endswith('.csv'):
         read_file = pd.read_csv(path_to_file)
     else:
         raise Exception("File not supported")
@@ -62,14 +64,15 @@ def convert_to_csv(path_to_file, file_name):
     rootdir = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
     for subdir, dirs, files in os.walk(rootdir):
         for file in files:
-            convert_to_csv(os.path.join(subdir, file), str(file))
+            if(file.endswith('.csv')):
+                convert_to_csv(os.path.join(subdir, file), str(file))
             
-            print(os.path.join(subdir, file))
+                print(os.path.join(subdir, file))
 
     with open(path_to_file, 'r', encoding='unicode_escape') as f:
         reader = csv.reader(f, delimiter='\t')
         for i, line in enumerate(reader):
-            print ('line[{}] = {}'.format(i,line))
+          print ('line[{}] = {}'.format(i,line))
     #return read_file.to_csv(file_name, index=None, header=True)
     return path_to_file
             
@@ -79,38 +82,90 @@ def read_csvfile(path, file_name):
             if file.endswith != '.csv':
                 file = convert_to_csv(path, file_name)
             else:
-              with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore') as csvfile:
-                reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
-                for row in reader:
-                  print(row)
+                with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore') as csvfile:
+                    reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+                    for row in reader:
+                        print(row)
     return file
 
 path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
 def time_info(path_info):
-    time = []
-    file = convert_to_csv(path_info, dict1[2])
-    print(file)
-    with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore'):
-        reader = csv.reader(file, delimiter=' ', quotechar='|')
-        for row in reader:
-            print(row)
-            time.append(float(row[0]) + "-" + float(row[1]))
+    files = glob.glob(path_info + '/**/*/chords.xlsx', recursive=True)
+    #print(files)
+    for file in files:
+        book = openpyxl.load_workbook(file)
+        sheet = book.active
+        cells = sheet[sheet.dimensions]
+        
+        for row in cells:
+            sheet.append(row)
+    
+        for row in sheet.iter_rows(min_row=1, min_col=1, max_row=sheet.max_row, max_col=2):
+            for cell in row:
+                print(cell.value, end=" ")
+        
+    book.save('time_info.xlsx')
+    
+    # csv_reader_time = read_csvfile(path_info, dict1[2])
+    
+    # for row in csv_reader_time:
+    #     print(row)
+    #     time.append(float(row[0]) + "-" + float(row[1]))
+    
+    #with open(csv_file, newline='', encoding = 'unicode_escape', errors = 'ignore'):
+        #reader = csv.reader(csv_file, delimiter=' ', quotechar='|')
+        #for row in reader:
+         #   print(row)
+          #  time.append(float(row[0]) + "-" + float(row[1]))
         
         #print(time)
-    return np.array(time)
 
+#time_info(path_info)
 
 def chord_info(path_info):
-    chords = []
-    csv_reader_chords = read_csvfile(path_info, dict1[2])
-
-    for row in csv_reader_chords:
-        chords.append(str(row[2]))
+    #NOTE: TO READ ALL CHORD CELLS OF ALL FILES - def chord_info(path_info):
+    # files = glob.glob(path_info + '/**/*/chords.xlsx', recursive=True)
+    # for file in files:
+    #     if not file.endswith('.xlsx'):
+    #         raise Exception('Not supported file')
+    #     else:
+    #       book = openpyxl.load_workbook(file)
+    #       sheet = book.active
+    #       cells = sheet[sheet.dimensions]
         
-        #print(chords)
-    return np.array(chords)
+    #       for row in cells:
+    #           sheet.append(row)
+    
+    #       for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
+    #           for cell in row:
+    #               print(cell.value, end=" ")
+        
+    #     book.save('chord_info.xlsx')
+    
+    #NOTE: TO READ ALL CHORD CELLS OF A SINGLE FILE - def chord_info(path_info):
+    for files in os.listdir(path_info):
+        for file in files:
+            if not file.startswith('chords'):
+                #raise Exception('Not supported file')
+                continue
+               
+            else:
+                book = openpyxl.load_workbook(file)
+                sheet = book.active
+                cells = sheet[sheet.dimensions]
+            
+                for row in cells:
+                    sheet.append(row)
+        
+                for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
+                   for cell in row:
+                       print(cell.value, end=" ")
+            
+            book.save('chord_info.xlsx')
 
-def midi2csv(path): 
+chord_info('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset/1')
+
+def midi2csv(path, file): 
     for roots, dirs, files in os.walk(path):
         for files in dirs:
             with open("MIDI2CSV_Converted.csv", 'w', newline='', encoding='utf-8-sig') as csv:
@@ -124,24 +179,24 @@ def midi2csv(path):
     
     return csv
 
-def csv2midi(path):
+def csv2midi(path, file):
     midi_path = []
     midi_new_path = []
     final_midi_path = []
+    global midi_object
     for roots, dirs, files in os.walk(path):
         for files in dirs:
-            if files.startswith("chords"):
+            if files.endswith(".csv"):
                 midi_path.append(os.path.join('.', path, files))
-                for m in midi_path:
-                    midi = pm.csv_to_midi(files)
-                with open("CSV2MIDI_Converted.mid", "wb") as output_midi_file:
+                for file in files:
+                    midi = pm.csv_to_midi(file)
+                with open("CSV2MIDI_Converted.mid", "wb") as midi_object:
                     midi_new_path.append(os.path.join('.',path, m))
-                    midi_writer = pm.FileWriter(output_midi_file)
-                    midi_writer.write(midi)
-                    
+                    midi_writer = pm.FileWriter(midi_object)
+                    midi_writer.write(midi_object)
                     final_midi_path.append(os.path.join('.', midi_new_path, midi_writer))
-    
-    return midi_writer
+                    #print(midi)
+    return midi_object
 
 path_kern = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/TAVERN_Dataset'
 def kern_midiFile(path_kern):
@@ -187,8 +242,8 @@ def kern2midi(path_kern):
                                 midi = ConvertMidi(files)
                                 midi_path.append(os.path.join('.',path, midi))
         
-    return midi
-    
+    return midi    
+
 # #To MIDI files and piano rolls
 class Info_MIDI(object):
     def __init__(self, path, quantization):
