@@ -16,11 +16,12 @@ import librosa
 import vampy
 import py_midicsv as pm
 
+from Read_Symbolic_Notation import *
+
 #Dict = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
 
 #2 - Create Pitch Class Profile Vector
 #NNLS
-#chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
 def midi2chroma(MIDI_file):
     chroma = np.zeros((MIDI_file.shape[0], 12))
     for i, MIDI_frame in enumerate(MIDI_file):
@@ -38,30 +39,37 @@ def get_NNLS(chroma_path):
         if file.endswith('.csv') in file_list:
             with open(file, 'r') as csv_file:
                 #csv = csv.reader(csv_file)
-                midi_object = map(int,pm.csv_to_midi(csv_file))
-                data, rate = librosa.load(midi_object)
-                chroma = vampy.collect(data, rate, "nnls-chroma:nnls-chroma")
-                #chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
-                stepsize, chromadata = chroma["Chroma"]
-                plt.imshow(chromadata)
-                plt.show()
+                midi_object = csv2midi(file_list, csv_file)
+                # data, rate = librosa.load(midi_object)
+                # chroma = vampy.collect(data, rate, "nnls-chroma:nnls-chroma")
+                # chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
+                # stepsize, chromadata = chroma["Chroma"]
+                # plt.imshow(chromadata)
+                # plt.show()
+                chroma = midi2chroma(midi_object)
+                print(chroma)
                 chroma_vector.append(chroma)
     
+    return np.array(chroma_vector)
+
+def get_chroma_bins(chroma_path):    
     chroma_bins = []
+    chroma_vector = get_NNLS(chroma_path)
     for c_bins in chroma_vector:
         chroma_bins.append(c_bins['Chroma Values from NNLS'].tolist())
         
         print(chroma_bins)
-    return np.array(chroma_bins), np.array(chroma_vector)
+    return np.array(chroma_bins),
 
 get_NNLS(chroma_path)
+get_chroma_bins(chroma_path)
 
 def get_NNLS_midi2chroma(chroma_path):
     chroma_vector = []
     for files in os.listdir(chroma_path):
         for file in files:
             with open(file, 'r') as csv:
-                midi_object = pm.csv_to_midi(csv)
+                midi_object = csv2midi(chroma_path, csv)
                 chroma = midi2chroma(midi_object)
                 #print(chroma)
                 chroma_vector.append(chroma)
@@ -79,8 +87,6 @@ def get_NNLS_STFT(chroma_path):
                 print(chroma)
                 chroma_vector.append(chroma)
     return np.array(chroma_vector)
-
-get_NNLS(chroma_path)
 
 # def get_hpcp(x, sr, n_bins=12, f_min=55, f_ref=440.0, min_magn=-100):
 #     #Based on code from https://python.hotexamples.com/pt/examples/vamp/-/collect/python-collect-function-examples.html

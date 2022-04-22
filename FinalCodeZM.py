@@ -41,12 +41,12 @@ from HCDF_Macedo import *
     #5 - Calculate HCDF
     #6 - Obtain results
     
-# path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset"
+path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset"
 # time = time_info(path)
 # chords = chord_info(path)
 
 chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/NNLS_Features/Cross-Era_Datasets/cross-era_chroma-nnls"
-#NNLS = get_NNLS(chroma_path)
+NNLS = get_NNLS(chroma_path)
 
 #3 - We will need a class for everything related with TIS/TIV, largely based on TIVlib (Ramires, António, et al. "TIV. lib: an open-source library for the tonal description of musical audio." arXiv preprint arXiv:2008.11529 (2020).)
 class TonalIntervalVector:
@@ -225,6 +225,77 @@ mat = list(matrix_MIDI.values())
 midi_mat = mat[0] + mat[1] + mat[2] + mat[3]
 midi_mat.shape
 
+def evaluate_hcdf_across_beatles(sigma=30, distance='euclidean'):
+    f_measure_results = []
+    precision_results = []
+    recall_results = []
+    print("evaluate_hcdf_across_beatles_dataset", sigma, distance)
+    for k, t in beatles.load_tracks().items():
+        midi_matrixes = Read_midi(t.midi_path, 28).read_file()
+        mat = list(midi_matrixes.values())
+        midi_quartet = mat[0] + mat[1] + mat[2] + mat[3]
+        chroma_quartets = midi2chroma(midi_quartet)
+        
+        changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_quartets, symbolic=True,
+                            sigma=sigma, dist=distance)
+
+        changes_ground_truth = np.array([c['time'] for c in t.chords])
+
+        f_measure, precision, recall = mir_eval.onset.f_measure(changes_ground_truth, changes, window=31.218) #same window than Harte
+        # print(t.title, f_measure, precision, recall)
+        f_measure_results.append(f_measure)
+        precision_results.append(precision)
+        recall_results.append(recall)
+    return np.mean(np.array(f_measure_results)), \
+            np.mean(np.array(precision_results)), \
+            np.mean(np.array(recall_results))
+
+results_euclidean = {
+    sigma: evaluate_hcdf_across_beatles(sigma=sigma, distance='euclidean') 
+    for sigma in range(1, 52, 5)
+}
+
+results_cosine = {
+    sigma: evaluate_hcdf_across_beatles(sigma=sigma, distance='cosine') 
+    for sigma in range(1, 52, 5)
+}
+
+def tune_sigma_plot(evaluation_result):
+    sigma_list = []; type_metric = []; metrics = []
+    for s, v in evaluation_result.items():
+        f, p, r = v
+        # f measure
+        sigma_list.append(s)
+        type_metric.append("F_score")
+        metrics.append(f)
+        # Precision
+        sigma_list.append(s)
+        type_metric.append("Precision")
+        metrics.append(p)
+        # Recall
+        sigma_list.append(s)
+        type_metric.append("Recall")
+        metrics.append(r)
+    df_dict = {
+        "sigma": sigma_list,
+        "metric": type_metric,
+        "value": metrics
+    }
+
+    df = pd.DataFrame(df_dict)
+    fig = px.line(df, x="sigma", y="value", color="metric", render_mode="svg")
+    fig.show()
+
+# """Tuning sigma gaussian hyperparameter for HCDF with euclidean distance."""
+
+tune_sigma_plot(results_euclidean)
+
+# """Results are better segmenting the chord boundaries that the current aproaches for chord recgnition. With a sigma=20 all the metrics computed across the Haydn op 20 dataset are greater than 70%."""
+
+tune_sigma_plot(results_cosine)
+
+# """The perrformance of HCDF with the cosine distance is a bit worse than using the euclidean distance."""
+
 np.set_printoptions(threshold=sys.maxsize)
 
 chroma_mat = midi2chroma(midi_mat)
@@ -238,3 +309,7 @@ changes_ground_truth
 
 f_measure, precision, recall = mir_eval.onset.f_measure(changes_ground_truth, changes, window=31.218) #same window than Harte
 f_measure, precision, recall
+
+evaluate_hcdf_across_beatles()
+
+

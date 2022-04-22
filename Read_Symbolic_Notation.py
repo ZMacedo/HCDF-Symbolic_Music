@@ -16,7 +16,7 @@ import glob
 from unidecode import unidecode
 np.seterr(all='raise')
 
-#dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
+dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
 
 # 1 - Read symbolic inputs (or .csv files with annotations)
 # def load_dataset():
@@ -61,7 +61,7 @@ def convert_to_csv(path_to_file, file_name):
     else:
         raise Exception("File not supported")
     
-    rootdir = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
+    rootdir = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/BPS_FH_Dataset'
     for subdir, dirs, files in os.walk(rootdir):
         for file in files:
             if(file.endswith('.csv')):
@@ -79,7 +79,7 @@ def convert_to_csv(path_to_file, file_name):
 def read_csvfile(path, file_name):
     for files in os.walk(path):
         for file in files:
-            if file.endswith != '.csv':
+            if not file.endswith('.csv'):
                 file = convert_to_csv(path, file_name)
             else:
                 with open(file, newline='', encoding = 'unicode_escape', errors = 'ignore') as csvfile:
@@ -88,10 +88,10 @@ def read_csvfile(path, file_name):
                         print(row)
     return file
 
-path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset'
+path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/BPS_FH_Dataset'
 def time_info(path_info):
-    files = glob.glob(path_info + '/**/*/chords.xlsx', recursive=True)
-    #print(files)
+    #NOTE: TO READ ALL TIME CELLS OF ALL FILES - def chord_info(path_info):
+    files = glob.glob(path_info + '/**/*/' + dict1[2], recursive=True)
     for file in files:
         book = openpyxl.load_workbook(file)
         sheet = book.active
@@ -106,66 +106,70 @@ def time_info(path_info):
         
     book.save('time_info.xlsx')
     
-    # csv_reader_time = read_csvfile(path_info, dict1[2])
-    
-    # for row in csv_reader_time:
-    #     print(row)
-    #     time.append(float(row[0]) + "-" + float(row[1]))
-    
-    #with open(csv_file, newline='', encoding = 'unicode_escape', errors = 'ignore'):
-        #reader = csv.reader(csv_file, delimiter=' ', quotechar='|')
-        #for row in reader:
-         #   print(row)
-          #  time.append(float(row[0]) + "-" + float(row[1]))
+    #NOTE: TO READ ALL TIME CELLS OF A SINGLE FILE - def chord_info(path_info):
+    # for files in os.listdir(path_info):
+    #     for file in files:
+    #         if not file.startswith('chords'):
+    #             #raise Exception('Not supported file')
+    #             continue
+               
+    #         else:
+    #             book = openpyxl.load_workbook(file)
+    #             sheet = book.active
+    #             cells = sheet[sheet.dimensions]
+            
+    #             for row in cells:
+    #                 sheet.append(row)
         
-        #print(time)
+    #             for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
+    #                 for cell in row:
+    #                     print(cell.value, end=" ")
+            
+    #         book.save('chord_info.xlsx')
 
 #time_info(path_info)
 
 def chord_info(path_info):
     #NOTE: TO READ ALL CHORD CELLS OF ALL FILES - def chord_info(path_info):
-    # files = glob.glob(path_info + '/**/*/chords.xlsx', recursive=True)
-    # for file in files:
-    #     if not file.endswith('.xlsx'):
-    #         raise Exception('Not supported file')
-    #     else:
-    #       book = openpyxl.load_workbook(file)
-    #       sheet = book.active
-    #       cells = sheet[sheet.dimensions]
+    files = glob.glob(path_info + '/**/*/' + dict1[2], recursive=True)
+    for file in files:
+            book = openpyxl.load_workbook(file)
+            sheet = book.active
+            cells = sheet[sheet.dimensions]
         
-    #       for row in cells:
-    #           sheet.append(row)
+            for row in cells:
+                sheet.append(row)
     
-    #       for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
-    #           for cell in row:
-    #               print(cell.value, end=" ")
+            for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
+                for cell in row:
+                    print(cell.value, end=" ")
         
-    #     book.save('chord_info.xlsx')
+    book.save('chord_info.xlsx')
     
     #NOTE: TO READ ALL CHORD CELLS OF A SINGLE FILE - def chord_info(path_info):
-    for files in os.listdir(path_info):
-        for file in files:
-            if not file.startswith('chords'):
-                #raise Exception('Not supported file')
-                continue
+#     for files in os.listdir(path_info):
+#         for file in files:
+#             if not file.startswith('chords'):
+#                 #raise Exception('Not supported file')
+#                 continue
                
-            else:
-                book = openpyxl.load_workbook(file)
-                sheet = book.active
-                cells = sheet[sheet.dimensions]
+#             else:
+#                 book = openpyxl.load_workbook(file)
+#                 sheet = book.active
+#                 cells = sheet[sheet.dimensions]
             
-                for row in cells:
-                    sheet.append(row)
+#                 for row in cells:
+#                     sheet.append(row)
         
-                for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
-                   for cell in row:
-                       print(cell.value, end=" ")
+#                 for row in sheet.iter_rows(min_row=1, min_col=3, max_row=sheet.max_row, max_col=3):
+#                    for cell in row:
+#                        print(cell.value, end=" ")
             
-            book.save('chord_info.xlsx')
+#             book.save('chord_info.xlsx')
 
-chord_info('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/NEW_BPS-FH_Dataset/1')
+#chord_info(path_info)
 
-def midi2csv(path, file): 
+def midi2csv(path): 
     for roots, dirs, files in os.walk(path):
         for files in dirs:
             with open("MIDI2CSV_Converted.csv", 'w', newline='', encoding='utf-8-sig') as csv:
@@ -176,8 +180,11 @@ def midi2csv(path, file):
                         csv = pm.midi_to_csv(file)
                         midi_notes = os.path.relpath(current,path).split(os.sep)
                         w.writerow(midi_notes)
+                        print(w)
     
-    return csv
+            return w
+
+midi2csv('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/Bach_Preludes_Dataset')
 
 def csv2midi(path, file):
     midi_path = []
@@ -191,12 +198,12 @@ def csv2midi(path, file):
                 for file in files:
                     midi = pm.csv_to_midi(file)
                 with open("CSV2MIDI_Converted.mid", "wb") as midi_object:
-                    midi_new_path.append(os.path.join('.',path, m))
+                    midi_new_path.append(os.path.join('.',path, midi_object))
                     midi_writer = pm.FileWriter(midi_object)
                     midi_writer.write(midi_object)
                     final_midi_path.append(os.path.join('.', midi_new_path, midi_writer))
                     #print(midi)
-    return midi_object
+    return np.array(final_midi_path)
 
 path_kern = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/TAVERN_Dataset'
 def kern_midiFile(path_kern):
@@ -225,24 +232,27 @@ def kern_midiFile(path_kern):
 
 def kern2midi(path_kern):
     midi_path = []
-    for roots, dirs, files in os.walk(path):
+    for roots, dirs, files in os.walk(path_kern):
         if dirs == "Beethoven":
             for subdirs in os.walk(dirs):
                 for subsubdirs in os.walk(subdirs):
                     if subsubdirs == "Krn":
                         if files.endswith('.krn'):
-                            midi = ConvertMidi(files)
+                            midi = ConverterMidi(files)
                             midi_path.append(os.path.join('.',path, midi))
+                            
         elif dirs == 'Mozart':
             for subdirs in os.walk(dirs):
                 for subsubdirs in subdirs:
                     for subsubdirs in os.walk(subdirs):
                         if subsubdirs == "Krn":
                             if files.endswith('.krn'):
-                                midi = ConvertMidi(files)
+                                midi = ConverterMidi(files)
                                 midi_path.append(os.path.join('.',path, midi))
         
-    return midi    
+                            return np.array(midi_path)  
+
+kern2midi(path_kern)
 
 # #To MIDI files and piano rolls
 class Info_MIDI(object):
@@ -304,7 +314,7 @@ class Info_MIDI(object):
                             min_pitch = pitch
             return min_pitch, max_pitch
         
-    def read_file(self, path):
+    def read_file(self,path):
             # Read the midi file and return a dictionnary {track_name : pianoroll}
             mid = MidiFile(self.__song_path)
             for roots, dirs, files in os.walk(path):
