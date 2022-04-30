@@ -4,16 +4,33 @@ Spyder Editor
 
 This is a temporary script file.
 """
-import pandas as pd
-import csv
+import music21
+import mido
 from mido import MidiFile
+import mirdata
 import os
+import sys
 import py_midicsv as pm
-import numpy as np
-import openpyxl
-from music21 import *
 import glob
+import csv
+import json
+import librosa
+import pretty_midi
+from libfmp import *
+import pickle
+import mir_eval
+import matplotlib.pyplot as plt
+import pandas as pd
 from unidecode import unidecode
+from vampy import *
+!pip install py-midi
+
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter
+from astropy.convolution import convolve, Gaussian1DKernel
+
 np.seterr(all='raise')
 
 dict1 = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
@@ -88,7 +105,8 @@ def read_csvfile(path, file_name):
                         print(row)
     return file
 
-path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/BPS_FH_Dataset'
+path_info = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/AugmentedNet/rawdata/corrections/BPS'
+
 def time_info(path_info):
     #NOTE: TO READ ALL TIME CELLS OF ALL FILES - def chord_info(path_info):
     files = glob.glob(path_info + '/**/*/' + dict1[2], recursive=True)
@@ -183,8 +201,6 @@ def midi2csv(path):
                         print(w)
     
             return w
-
-midi2csv('C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Datasets/Bach_Preludes_Dataset')
 
 def csv2midi(path, file):
     midi_path = []

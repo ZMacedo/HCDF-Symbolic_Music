@@ -7,112 +7,86 @@ Created on Thu Mar 24 15:57:55 2022
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-# from scipy.ndimage import gaussian_filter
-# from astropy.convolution import convolve, Gaussian1DKernel
+from scipy.ndimage import gaussian_filter
+from astropy.convolution import convolve, Gaussian1DKernel
 np.seterr(all='raise')
 
+import music21
+import mido
+from mido import MidiFile
+import mirdata
 import os
-import librosa
-import vampy
+import sys
 import py_midicsv as pm
+import glob
+import csv
+import json
+import librosa
+import pretty_midi
+from libfmp import *
+import pickle
+import mir_eval
+import matplotlib.pyplot as plt
+import pandas as pd
+from unidecode import unidecode
+from vampy import *
+!pip install py-midi2csv()
 
 from Read_Symbolic_Notation import *
 
 #Dict = {1: 'beats.xlsx', 2: 'chords.xlsx', 3: 'dBeats.xlsx', 4: 'notes.xlsx', 5: 'phrases.xlsx'}
 
 #2 - Create Pitch Class Profile Vector
-#NNLS
-def midi2chroma(MIDI_file):
-    chroma = np.zeros((MIDI_file.shape[0], 12))
-    for i, MIDI_frame in enumerate(MIDI_file):
-        for j, frame in enumerate(MIDI_frame):
-            chroma[i][j % 12] += frame
-    return chroma
 
-chroma_path = "C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/Chroma_Datasets/JAAH_features"
-def get_NNLS(chroma_path):
-    chroma_vector = []
-    global csv
-    file_list = os.listdir(chroma_path)
-    #print(file_list)
-    for file in file_list:
-        if file.endswith('.csv') in file_list:
-            with open(file, 'r') as csv_file:
-                #csv = csv.reader(csv_file)
-                midi_object = csv2midi(file_list, csv_file)
-                # data, rate = librosa.load(midi_object)
-                # chroma = vampy.collect(data, rate, "nnls-chroma:nnls-chroma")
-                # chroma = list(vamp.process_audio(y, sr, plugin, output="chroma", block_size=fr, step_size=off))
-                # stepsize, chromadata = chroma["Chroma"]
-                # plt.imshow(chromadata)
-                # plt.show()
-                chroma = midi2chroma(midi_object)
-                print(chroma)
-                chroma_vector.append(chroma)
+path_score = 'C:/Users/HP/Downloads/Codigos_Tese/Codigo_ZeMacedo/AugmentedNet/rawdata/corrections/BPS'
+
+def music21_converterScoreMidi(path_info):
+    for file in os.listdir(path_info):
+        for file in glob.glob("*.mxl"):
+        #if file.endswith(".mxl"):
+            sc = stream.Stream(file)
+            mf = midi.translate.streamToMidiFile(sc)
+            #fp = sc.write('midi', fp=files)
+            mf.show('midi')
+            
+            return mf
     
-    return np.array(chroma_vector)
+music21_converterScoreMidi(path_score)
 
-def get_chroma_bins(chroma_path):    
+files = os.listdir(path_score)
+midi_matrix = []
+for file in files:
+     if file.endswith('mid'):
+        midi_matrix.append(file)
+
+midi_matrix
+
+def get_chroma(midi_vector):
+    chroma_vector = []
     chroma_bins = []
-    chroma_vector = get_NNLS(chroma_path)
-    for c_bins in chroma_vector:
-        chroma_bins.append(c_bins['Chroma Values from NNLS'].tolist())
+    file_list = glob.glob(path_score + '/*.mid', recursive=True)
+    for file in file_list:
+        midi_object = pretty_midi.PrettyMIDI(file)
+        chroma_vector = np.zeros((len(midi_object.instruments),12))
+        midi_object.time_signature_changes
+        midi_object.get_beats()[0:1000]
+        midi_object.instruments[0].notes[0:1000]
         
-        print(chroma_bins)
-    return np.array(chroma_bins),
-
-get_NNLS(chroma_path)
-get_chroma_bins(chroma_path)
-
-def get_NNLS_midi2chroma(chroma_path):
-    chroma_vector = []
-    for files in os.listdir(chroma_path):
-        for file in files:
-            with open(file, 'r') as csv:
-                midi_object = csv2midi(chroma_path, csv)
-                chroma = midi2chroma(midi_object)
-                #print(chroma)
-                chroma_vector.append(chroma)
-    return np.array(chroma_vector)
-
-def get_NNLS_STFT(chroma_path):
-    chroma_vector = []
-    for files in os.walk(chroma_path):
-        #print(files)
-        for file in files:
-            with open(file, 'r') as csv:
-                midi_object = pm.csv_to_midi(csv)
-                y, sr = librosa.load(midi_object)
-                chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-                print(chroma)
-                chroma_vector.append(chroma)
-    return np.array(chroma_vector)
-
-# def get_hpcp(x, sr, n_bins=12, f_min=55, f_ref=440.0, min_magn=-100):
-#     #Based on code from https://python.hotexamples.com/pt/examples/vamp/-/collect/python-collect-function-examples.html
-#     """Compute HPCP features from raw audio using the HPCP Vamp plugin.
-#     Vamp, vamp python module and plug-in must be installed.
-    
-#     Args:
-#         x (1d-array): audio signal, mono
-#         sr (int): sample rate
-#         n_bins (int): number of chroma bins
-#         f_min (float): minimum frequency
-#         f_ref (float): A4 tuning frequency
-#         min_magn (float): minimum magnitude for peak detection, in dB
+        #midifile = midi_to_list(midi_object)
+        #chroma = libfmp.b.b_sonification.list_to_chromagram(file)
+        #chromagram = libfmp.b.b_plot.plot_chromagram(chroma)
         
-#     Returns:
-#         1d-array: time vector
-#         2d-array: HPCP features
-#     """
+        chromagram = midi_object.get_chroma()
+        plt.imshow(chromagram)
 
-#     plugin = 'vamp-hpcp-mtg:MTG-HPCP'
-#     params = {'LF': f_min, 'nbins': n_bins, 'reff0': f_ref,
-#               'peakMagThreshold': min_magn}
+        for c in chroma_vector:
+            chroma_bins.append(c['Chroma values'].tolist())
     
-#     data = vamp.collect(x, sr, plugin, parameters=params)
-#     vamp_hop, hpcp = data['matrix']
-    
-#     t = float(vamp_hop) * (8 + np.arange(len(hpcp)))
-    
-#     return t, hpcp
+    #for i, midi_object in enumerate(midi_vector):
+    #    for j, element in enumerate(midi_object):
+    #        chroma_vector[i][j % 12] += element
+                
+    return np.array(chroma_vector).transpose()
+
+chroma_list = get_chroma(midi_matrix)
+        
