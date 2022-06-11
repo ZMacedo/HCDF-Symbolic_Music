@@ -1,17 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # THINGS TO BE CLARIFIED WITH PEDRO
-# 
-# - NOT UNDERSTANDING WHY THE RESULTS ARE LIKE THAT (it must be because there are functions that are not giving the output that was supposed to have, but i can't understand why, and i have already made various kind of approaches to each one of them)
-# - Trying to understand what get_peaks_hcdf, harmonic_change function really must have as output
-
-# # HEADING ATTENTION TO:
-# 
-# - Resolve the results problem; (in progress)
-# - Seeing what music21 can do to present this "tree representation" scheme (taking the stronger note of a chord); (in progress)
-# - Writing the dissertation.
-
 # # Symbolic Harmonic Change Detection in the Tonal Interval Space
 
 # The detection of chord boundaries (onset or beginning or chords in the musical surface) is typically addressed within Music Information Retrieval as harmonic change detection. Existing solutions are known to improve complex systems for automatic chord detection as a preprocessing segmentation stage. This project aims at improving the performance of harmonic change detection by adopting a tree-based representation for reducing the complex structure of symbolic music manifestations to an n-chord representation, targeting the basic underlying triadic structure of Western tonal harmony.
@@ -21,35 +10,26 @@
 # In[1]:
 
 
-#get_ipython().system('pip install unidecode')
-
 from music21 import *
 import mido
 from mido import MidiFile
 import mirdata
-import igraph as ig
 import os
 import plotly.express as px
 import sys
-import py_midicsv as pm
 import numpy as np
 import glob
-import csv
-import json
-import librosa
 import pretty_midi
+import libfmp.b
 import libfmp.c1
 import libfmp.c3
-import libfmp.b
-import pickle
 import mir_eval
+import py_midicsv as pm
 from TIVlib import TIV
 import matplotlib.pyplot as plt
 import pandas as pd
+import csv
 from unidecode import unidecode
-from pymidi import *
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy.spatial.distance import cosine, euclidean
 from scipy.ndimage import gaussian_filter
 #np.seterr(all='raise')
@@ -60,9 +40,6 @@ from scipy.ndimage import gaussian_filter
 # A truncated version of TIV library [1].
 # 
 # [1] - Ramires, A., Bernardes, G., Davies, M.E., & Serra, X. (2020). TIV.lib: an open-source library for the tonal description of musical audio. ArXiv, abs/2008.11529.
-
-# In[2]:
-
 
 #The full TIV library isn't importing correctly to the program, so here is a part of the TIV library.
 
@@ -165,177 +142,11 @@ class TIV:
    #     return distance_computed
 
 
-# In[3]:
-
-
-#Taken from https://github.com/qsdfo/midi_to_numpy/blob/master/read_midi.py
-
-#To read midi into piano rolls (the only part of this class that is adamant is read_file())
-class Read_midi(object):
-    def __init__(self, song_path, quantization):
-        ## Metadata
-        self.__song_path = song_path
-        self.__quantization = quantization
-
-        ## Pianoroll
-        self.__T_pr = None
-
-        ## Private misc
-        self.__num_ticks = None
-        self.__T_file = None
-
-    @property
-    def quantization(self):
-        return self.__quantization
-
-    @property
-    def T_pr(self):
-        return self.__T_pr
-
-    @property
-    def T_file(self):
-        return self.__T_file
-
-    def get_total_num_tick(self):
-        # Midi length should be written in a meta message at the beginning of the file,
-        # but in many cases, lazy motherfuckers didn't write it...
-
-        # Read a midi file and return a dictionnary {track_name : pianoroll}
-        mid = MidiFile(self.__song_path)
-
-        # Parse track by track
-        num_ticks = 0
-        for i, track in enumerate(mid.tracks):
-            tick_counter = 0
-            for message in track:
-                # Note on
-                time = float(message.time)
-                tick_counter += time
-            num_ticks = max(num_ticks, tick_counter)
-        self.__num_ticks = num_ticks
-
-    def get_pitch_range(self):
-        mid = MidiFile(self.__song_path)
-        min_pitch = 200
-        max_pitch = 0
-        for i, track in enumerate(mid.tracks):
-            for message in track:
-                if message.type in ['note_on', 'note_off']:
-                    pitch = message.note
-                    if pitch > max_pitch:
-                        max_pitch = pitch
-                    if pitch < min_pitch:
-                        min_pitch = pitch
-        return min_pitch, max_pitch
-
-    def get_time_file(self):
-        # Get the time dimension for a pianoroll given a certain quantization
-        mid = MidiFile(self.__song_path)
-        # Tick per beat
-        ticks_per_beat = mid.ticks_per_beat
-        # Total number of ticks
-        self.get_total_num_tick()
-        # Dimensions of the pianoroll for each track
-        self.__T_file = int((self.__num_ticks / ticks_per_beat) * self.__quantization)
-        return self.__T_file
-
-    def read_file(self):
-        # Read the midi file and return a dictionnary {track_name : pianoroll}
-        mid = MidiFile(self.__song_path)
-        # Tick per beat
-        ticks_per_beat = mid.ticks_per_beat
-
-        # Get total time
-        self.get_time_file()
-        T_pr = self.__T_file
-        # Pitch dimension
-        N_pr = 128
-        pianoroll = {}
-
-        def add_note_to_pr(note_off, notes_on, pr):
-            pitch_off, _, time_off = note_off
-            # Note off : search for the note in the list of note on,
-            # get the start and end time
-            # write it in th pr
-            match_list = [(ind, item) for (ind, item) in enumerate(notes_on) if item[0] == pitch_off]
-            if len(match_list) == 0:
-                print("Try to note off a note that has never been turned on")
-                # Do nothing
-                return
-
-            # Add note to the pr
-            pitch, velocity, time_on = match_list[0][1]
-            pr[time_on:time_off, pitch] = velocity
-            # Remove the note from notes_on
-            ind_match = match_list[0][0]
-            del notes_on[ind_match]
-            return
-
-        # Parse track by track
-        counter_unnamed_track = 0
-        for i, track in enumerate(mid.tracks):
-            # Instanciate the pianoroll
-            pr = np.zeros([T_pr, N_pr])
-            time_counter = 0
-            notes_on = []
-            for message in track:
-
-                ##########################################
-                ##########################################
-                ##########################################
-                # TODO : keep track of tempo information
-                # import re
-                # if re.search("tempo", message.type):
-                #     import pdb; pdb.set_trace()
-                ##########################################
-                ##########################################
-                ##########################################
-
-
-                # print message
-                # Time. Must be incremented, whether it is a note on/off or not
-                time = float(message.time)
-                time_counter += time / ticks_per_beat * self.__quantization
-                # Time in pr (mapping)
-                time_pr = int(round(time_counter))
-                # Note on
-                if message.type == 'note_on':
-                    # Get pitch
-                    pitch = message.note
-                    # Get velocity
-                    velocity = message.velocity
-                    if velocity > 0:
-                        notes_on.append((pitch, velocity, time_pr))
-                    elif velocity == 0:
-                        add_note_to_pr((pitch, velocity, time_pr), notes_on, pr)
-                # Note off
-                elif message.type == 'note_off':
-                    pitch = message.note
-                    velocity = message.velocity
-                    add_note_to_pr((pitch, velocity, time_pr), notes_on, pr)
-
-            # We deal with discrete values ranged between 0 and 127
-            #     -> convert to int
-            pr = pr.astype(np.int16)
-            if np.sum(np.sum(pr)) > 0:
-                name = unidecode(track.name)
-                name = name.rstrip('\x00')
-                if name == u'':
-                    name = 'unnamed' + str(counter_unnamed_track)
-                    counter_unnamed_track += 1
-                if name in pianoroll.keys():
-                    # Take max of the to pianorolls
-                    pianoroll[name] = np.maximum(pr, pianoroll[name])
-                else:
-                    pianoroll[name] = pr
-        return pianoroll
-
-
 # # Auxiliary Functions 
 # 
 # By Pedro Ramoneda in "Harmonic Change Detection from Musical Audio"
 
-# In[4]:
+# In[3]:
 
 
 def gaussian_blur(centroid_vector, sigma):
@@ -376,7 +187,7 @@ def distance_calc(centroid_point, distance):
     return np.array(dist)
 
 
-# In[5]:
+# In[4]:
 
 
 #Now we will need to take information from TIV. So we will need some additional functions
@@ -413,10 +224,11 @@ def tonalIntervalSpace(chroma, symbolic=True):
     return real_imag(np.array(centroid_vector))
 
 
-# In[6]:
+# In[5]:
 
 
-def harmonic_change(chroma: list, window_size: int=2048, symbolic: bool=True, sigma: int=23, dist: str = 'euclidean'):
+def harmonic_change(chroma: list, window_size: int=2048, symbolic: bool=True, sigma: int = 5, dist: str = 'euclidean'):
+#     pdb.set_trace()
     chroma = np.array(chroma).transpose()
     centroid_vector = tonalIntervalSpace(chroma, symbolic=True)
 
@@ -431,28 +243,17 @@ def harmonic_change(chroma: list, window_size: int=2048, symbolic: bool=True, si
     return changes, hcdf_changes, harmonic_function
 
 
-# In[7]:
+# In[6]:
 
 
 np.set_printoptions(threshold=sys.maxsize)
-
-
-# In[8]:
-
-
-path_score_BPS = './Midi_Files/BPS'
-path_score_ABC = './Midi_Files/ABC'
-file_list_BPS = glob.glob(path_score_BPS + '/*.mid')
-file_list_ABC = glob.glob(path_score_ABC + '/*.mid')
-
-m_f = 'M7c06cae3.0PTairQuality.220523.mid'
 
 
 # # Piano Roll Representations
 # 
 # In order to represent musical scores for computational analysis, two-dimensional piano roll graphics (with columns being time steps and rows being pitches) are provided. It also gives a sense of pitch variation through all time steps.
 
-# In[9]:
+# In[7]:
 
 
 def midi_pianoRoll(file):
@@ -481,7 +282,7 @@ def midi_pianoRoll(file):
 # 
 # [2] - Meinard Müller and Frank Zalkow. libfmp: A Python Package for Fundamentals of Music Processing. Journal of Open Source Software (JOSS), 6(63), 2021.
 
-# In[10]:
+# In[8]:
 
 
 def chromagram(midi_file):
@@ -492,9 +293,9 @@ def chromagram(midi_file):
     array_pitch = np.array(df[['Pitch']])
     df_array = np.column_stack((array_time, array_pitch))
     chromagram = libfmp.b.b_sonification.list_to_chromagram(score, df_array.shape[0], 1)
-    chroma = libfmp.b.b_plot.plot_chromagram(chromagram, xlim = (0, array_time[-1]))
+    chroma = libfmp.b.b_plot.plot_chromagram(chromagram, xlim = (0, array_time[-1]), figsize=(16, 6))
     print(df['Start'].max())
-
+    
     plt.xlabel("Time (Seconds)")
     plt.ylabel("Pitch")
     plt.title("Chroma Vectors")
@@ -506,110 +307,52 @@ def chromagram(midi_file):
 #    chroma_bps = chromagram(file) 
     
 #for file in file_list_ABC:
-#    chroma_abc = chromagram(file) 
-#    c_a = libfmp.b.b_plot.plot_chromagram(chroma_abc) ###JUST IN CASE WE WANT TO PLOT CHROMAGRAMS ABC DATASET
+#    chroma_abc = chromagram(file) ###JUST IN CASE WE WANT TO PLOT CHROMAGRAMS ABC DATASET
 
 
-# For the next step, it will be necessary to transform the file into a suitable 12-element vector, according to TIV dimensions.
-
-# In[11]:
+# In[47]:
 
 
-def midi2chroma(m_vector):
-    vector = np.zeros((m_vector.shape[0], 12))
-    for i, frame in enumerate(m_vector):
-        for j, element in enumerate(frame):
-            vector[i][j % 12] += element
-    return vector
+import pdb
 
-#for file in file_list_BPS:
-#    midi_vector = Read_midi(file,28).read_file()
-#    for times, key in midi_vector.items():
-#        print(key.shape)
-#    vec = (list(midi_vector.values()))[0]
-#    chroma_vector = midi2chroma(vec)
-#    print(chroma_vector.shape)
-    
-#for file in file_list_ABC:
-#    midi_vector = Read_midi(file,23).read_file()
-#    for times, key in midi_vector.items():
-#        print(key.shape)                        #HAVE A LOT "Try to note off a note that has never been turned on"
-#    vec = (list(midi_vector.values()))[0]
-#    chroma_vector = midi2chroma(vec)
-#    print(chroma_vector.shape)
-
-#chroma = np.array(chroma_vector).transpose()
-#print(chroma.shape[1])
-
-
-# A continuous division of the score to make only the most "strong" note of the chord, in a form of making a tree representation.
-# 
-# For now, the main idea is the drop all notes apart from the "stronger" one, that occurs at the same time (in time_pitch function). Still thinking in a way to do just that (because we need to discover the "stronger" note on simultaneous notes).
-
-# In[12]:
-
-
-def time_pitch(file):
-    midi_data = pretty_midi.PrettyMIDI(file)
-    score = libfmp.c1.midi_to_list(midi_data)
-    df = pd.DataFrame(score, columns=['Start', 'Duration', 'Pitch', 'Velocity', 'Instrument'])
-    df = df.sort_values(['Start','Pitch'], ascending=[True, True]) # sort the dataframe properly
-    lst = list(df.Start)
-    return lst
-    
-#for file in file_list_BPS:
-#    keys_list_bps = time_pitch(file)
-#    break
-    
-#for file in file_list_ABC:
-#    abc = time_pitch(file)
-#    keys_list_abc = list(abc)
-#    print(keys_list_abc)
-
-
-# In[20]:
-
-def HCDF(path, sigma=10, distance='Euclidean'):
-    f_measure_results = []
-    precision_results = []
-    recall_results = []
-    if(path == file_list_BPS):
-        print("HCDF in BPS Dataset", sigma, distance)
-    elif(path == file_list_ABC):
-        print("HCDF in ABC Dataset", sigma, distance)
+def hcdf_changes_gt(csv_file):
+    if csv_file.endswith(".xlsx"):
+        df = pd.read_excel(csv_file, header=None)
+    elif csv_file.endswith(".csv"):
+        df = pd.read_csv(csv_file, header=None)
     else:
-        print("Not used dataset! Try again")
-    for file in path:
-        midi_vector = Read_midi(file,28).read_file()
-        vec = (list(midi_vector.values()))[0]
-        chroma_vector = midi2chroma(vec)
-        time_values = time_pitch(file)
-        
-#         for i in range(0, len(time_values)):
-#            for j in range(i+1, len(time_values)):
-#                if(time_values[i] > time_values[j]):
-#                    temp = time_values[i]    
-#                    time_values[i] = time_values[j]    
-#                    time_values[j] = temp
-         
-        changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_vector, symbolic=True, sigma=sigma, dist=distance)
-        #print(changes, hcdf_changes, harmonic_function)
-        changes = changes/220
-        
-        changes_ground_truth = np.array(time_values)
-        #print(changes_ground_truth)
-        
-        f_measure, precision, recall = mir_eval.onset.f_measure(changes_ground_truth, changes, window=31.218) #same window than Harte
-        f_measure_results.append(f_measure)
-        precision_results.append(precision)
-        recall_results.append(recall)
-        #import pdb; pdb.set_trace()
-        #breakpoint()
+        print("Not a valid excel format")
+    beat_chord_onset = df[0].to_numpy() * 60 / 120
+    return beat_chord_onset
+
+def HCDF(file, csv_file, sigma=int, distance='Euclidean', resolution = 28):
+    f_measure_results, precision_results, recall_results = [], [], []
+    # read midi
+    midi_vector = pretty_midi.PrettyMIDI(file, resolution, initial_tempo=120)
+    
+    # compute chroma     
+    chroma_vector = midi_vector.get_chroma(resolution).transpose()
+    
+    # predicted harmonic changes
+    changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_vector, symbolic=True, sigma=sigma, dist = distance)
+    changes = changes / resolution
+    
+    # ground truth harmonic changes
+    changes_ground_truth = hcdf_changes_gt(csv_file)
+    
+    #Plot
+    #plt.figure(figsize=(10, 7))
+    #plt.plot(hcdf_changes)
+    #plt.vlines(x=changes_ground_truth, ymin=0, ymax=max(hcdf_changes), colors='green')
+    #plt.title('Changes_GT / Changes')
+    
+    #  evaluation
+    f_measure, precision, recall = mir_eval.onset.f_measure(changes_ground_truth, changes, window=0.628)
+    f_measure_results.append(f_measure)
+    precision_results.append(precision)
+    recall_results.append(recall)
+    
     return np.mean(np.array(f_measure_results)), np.mean(np.array(precision_results)), np.mean(np.array(recall_results))
-
-
-# In[14]:
-
 
 def tune_sigma_plot(evaluation_result):
     sigma_list = []; type_metric = []; metrics = []
@@ -637,53 +380,197 @@ def tune_sigma_plot(evaluation_result):
     fig = px.line(df, x="sigma", y="value", color="metric", render_mode="svg")
     fig.show()
 
+def compute_hcdf(lst1, lst2, sigma):
+    f_sc_results = []
+    prec_results = []
+    rec_results = []
+    for file, file2 in zip(lst1, lst2):
+        # print(file)
+        # print(file2)
 
-# HCDF in BPS Dataset
+        hcdf = HCDF(file, file2, sigma=sigma, distance='Euclidean', resolution=28)
+        f_sc_results.append(hcdf[0])
+        prec_results.append(hcdf[1])
+        rec_results.append(hcdf[2])
 
-# In[22]:
+    return np.mean(np.array(f_sc_results)), np.mean(np.array(prec_results)), np.mean(np.array(rec_results))
 
+def results(lst1,lst2):
+    for file, file2 in zip(lst1, lst2):
+        results_euclidean = {
+            sigma: HCDF(file, file2, sigma=sigma, distance='Euclidean') for sigma in range(0, 50, 10)}
+        results_cosine = {
+            sigma: HCDF(file, file2, sigma=sigma, distance='Cosine') for sigma in range(0, 50, 10)}
+    return results_euclidean, results_cosine
 
-HCDF(file_list_BPS, sigma = 30, distance = 'Euclidean')
-breakpoint()
+# # HCDF in BPS Dataset
+path_score_BPS = './Datasets/BPS'
+file_list_BPS = glob.glob(path_score_BPS + '/*.mid')
+file_csv_BPS = glob.glob(path_score_BPS + '/*.xlsx')
 
-# In[ ]:
+lst1_bps = list()
+lst2_bps = list()
+for file in file_list_BPS:
+    lst1_bps.append(file)
+for file in file_csv_BPS:
+    lst2_bps.append(file)
 
+f_sc_bps, p_bps, r_bps = compute_hcdf(lst1_bps,lst2_bps, 10)
+print("BPS")
+print(f_sc_bps, p_bps, r_bps)
 
-results_euclidean_BPS = {
-    sigma: HCDF(file_list_BPS, sigma=sigma, distance='euclidean') 
-    for sigma in range(1, 52, 10)
-}
+results_euclidean_BPS, results_cosine_BPS = results(lst1_bps,lst2_bps)
 
 tune_sigma_plot(results_euclidean_BPS)
-
-results_cosine_BPS = {
-    sigma: HCDF(file_list_BPS, sigma=sigma, distance='cosine') 
-    for sigma in range(1, 52, 10)
-}
 tune_sigma_plot(results_cosine_BPS)
 
 
-# HCDF in ABC Dataset
+# # # HCDF in Tavern Dataset
+# # TAVERN consists of three types of files for each musical phrase for each annotator (A and B)
 
-# In[30]:
+path_Tavern = './Datasets/Tavern'
+lst_midi_beethoven = list()
+lst_midi_mozart = list()
+for file in glob.glob(path_Tavern + './Beethoven/*.mid'):
+    lst_midi_beethoven.append(file)
+for file in glob.glob(path_Tavern + './Mozart/*.mid'):
+    lst_midi_mozart.append(file)
+
+lst_csv_beethovenA = list()
+lst_csv_beethovenB = list()
+lst_csv_mozartA = list()
+lst_csv_mozartB = list()
+
+for file in glob.glob(path_Tavern + './Beethoven/*A.csv'):
+    lst_csv_beethovenA.append(file)
+for file in glob.glob(path_Tavern + './Beethoven/*B.csv'):
+    lst_csv_beethovenB.append(file)
+for file in glob.glob(path_Tavern + './Mozart/*A.csv'):
+    lst_csv_mozartA.append(file)
+for file in glob.glob(path_Tavern + './Mozart/*B.csv'):
+    lst_csv_mozartB.append(file)
+
+# #Beethoven with Annotator A
+f_sc_beethovenA, p_beethovenA, r_beethovenA = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenA, 10)
+print("Beethoven with Annotator A:")
+print(f_sc_beethovenA, p_beethovenA, r_beethovenA)
+
+results_euclidean_TAVERN_Beethoven_A, results_cosine_TAVERN_Beethoven_A= results(lst_midi_beethoven,lst_csv_beethovenA)
+
+tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
+tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
+
+# #Beethoven with Annotator B
+f_sc_beethovenB, p_beethovenB, r_beethovenB = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenB, 10)
+print("Beethoven with Annotator B:")
+print(f_sc_beethovenB, p_beethovenB, r_beethovenB)
+
+results_euclidean_TAVERN_Beethoven_B, results_cosine_TAVERN_Beethoven_B= results(lst_midi_beethoven,lst_csv_beethovenB)
+
+tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
+tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
+
+# #Mozart with Annotator A
+f_sc_mozartA, p_mozartA, r_mozartA = compute_hcdf(lst_midi_mozart,lst_csv_mozartA, 10)
+print("Mozart with Annotator A:")
+print(f_sc_mozartA, p_mozartA, r_mozartA)
+
+results_euclidean_TAVERN_MozartA, results_cosine_TAVERN_MozartA= results(lst_midi_mozart,lst_csv_mozartA)
+
+tune_sigma_plot(results_euclidean_TAVERN_MozartA)
+tune_sigma_plot(results_cosine_TAVERN_MozartA)
+
+# #Mozart with Annotator B
+f_sc_mozartB, p_mozartB, r_mozartB = compute_hcdf(lst_midi_mozart,lst_csv_mozartB, 10)
+print("Mozart with Annotator B:")
+print(f_sc_mozartB, p_mozartB, r_mozartB)
+
+results_euclidean_TAVERN_MozartB, results_cosine_TAVERN_MozartB= results(lst_midi_mozart,lst_csv_mozartB)
+
+tune_sigma_plot(results_euclidean_TAVERN_MozartB)
+tune_sigma_plot(results_cosine_TAVERN_MozartB)
 
 
-# HCDF(file_list_ABC, sigma = 6, distance = 'euclidean')
+# # # HCDF in Bach's Preludes (First Book of Well Tempered Clavier Preludes)
+path_Bach_Preludes = './Datasets/Bach_Preludes'
+midi_bach = list()
+csv_bach = list()
+for file in glob.glob(path_Bach_Preludes + './*.mid'):
+    midi_bach.append(file)
+for file in glob.glob(path_Bach_Preludes + './*.csv'):
+    csv_bach.append(file)
+
+f_sc_bach_preludes, p_bach_preludes, r_bach_preludes = compute_hcdf(midi_bach,csv_bach, 10)
+print("Bach Preludes")
+print(f_sc_bach_preludes, p_bach_preludes, r_bach_preludes)
+
+results_euclidean_Bach_Prelude, results_cosine_Bach_Prelude= results(midi_bach,csv_bach)
+
+tune_sigma_plot(results_euclidean_Bach_Prelude)
+tune_sigma_plot(results_cosine_Bach_Prelude)
 
 
-# # In[31]:
+# # # HCDF with Beethoven Quartets (ABC Dataset)
+path_ABC_Beethoven_Quartets = './Datasets/ABC(Beethoven_Quartets)'
+midi_beeQ = list()
+csv_beeQ = list()
+for file in glob.glob(path_ABC_Beethoven_Quartets + './*.mid'):
+    midi_beeQ.append(file)
+for file in glob.glob(path_ABC_Beethoven_Quartets + './*.csv'):
+    csv_beeQ.append(file)
 
+f_sc_beeQ, p_beeQ, r_beeQ = compute_hcdf(midi_beeQ,csv_beeQ, 10)
+print("Beethoven Quartets (ABC)")
+print(f_sc_beeQ, p_beeQ, r_beeQ)
 
-# results_euclidean_ABC = {
-#     sigma: HCDF(file_list_ABC, sigma=sigma, distance='euclidean') 
-#     for sigma in range(1, 52, 10)
-# }
+results_euclidean_Beethoven_Quartets, results_cosine_Beethoven_Quartets = results(midi_beeQ,csv_beeQ)
 
-# tune_sigma_plot(results_euclidean_ABC)
+tune_sigma_plot(results_euclidean_Beethoven_Quartets)
+tune_sigma_plot(results_cosine_Beethoven_Quartets)
 
-# results_cosine_ABC = {
-#     sigma: HCDF(file_list_ABC, sigma=sigma, distance='cosine') 
-#     for sigma in range(1, 52, 10)
-# }
-# tune_sigma_plot(results_cosine_ABC)
+# # # HCDF in Haydn20 Dataset
+# path_kern = './Datasets/Haydn_Op20/op20'
+# file_list_kern = glob.glob(path_kern + './***/**/*.krn')
 
+# for file in file_list_kern:
+#     if file.endswith('_tsroot.krn'):
+#         continue
+#     else:
+#         print(file)
+#         s = converter.parse(file)
+#         print(s.duration)
+#         #s.write("txt", str(file) + '_TXT.txt')
+#         #s.write("midi", str(file) + '_MIDI.mid')
+#         #csv = pm.midi_to_csv(str(file) + '_MIDI.mid')
+#         #with open(str(file) + '_CSV.csv', "w") as f:
+#         #    f.writelines(csv)
+#         #with open(str(file) + '_time_onsets.csv', "w") as f:
+#         #    f.writelines(csv)
+
+# def csv_time_pitch(csv_file):
+#     df = pd.read_csv(csv_file, header=None, sep='\n')
+#     df = df[0].str.split(',', expand=True)
+#     #df = df[0].apply(str).astype(str).str.replace(',', '')
+#     df[1] = pd.to_numeric(df[1], errors='coerce').div(1024)
+#     df1 = df[df[2].str.contains("Note_on") == True]
+#     #df1 = df1.filter(items=[1, 4]) #If we want Time and Pitch
+#     df_time = df1.filter(items=[1]) #Just onset times
+#     return df_time
+
+# midi_haydn20 = list()
+# csv_haydn20 = list()
+# for file in glob.glob(path_kern + './*.mid'):
+#     midi_haydn20.append(file)
+# for csv_file in glob.glob(path_kern + './***/**/*time_onsets.csv'):
+#     csv = csv_time_pitch(csv_file)
+#     csv_f = csv.to_csv(str(csv_file), index=False, header=False)
+#     csv_haydn20.append(csv_f)
+
+# f_sc_haydn20, p_haydn20, r_haydn20 = compute_hcdf(midi_haydn20,csv_haydn20)
+# print("Haydn20")
+# print(f_sc_haydn20, p_haydn20, r_haydn20)
+
+#results_euclidean_Haydn20, results_cosine_Haydn20 = results(midi_haydn20,csv_haydn20)
+
+#tune_sigma_plot(results_euclidean_Haydn20)
+#tune_sigma_plot(results_cosine_Haydn20)
