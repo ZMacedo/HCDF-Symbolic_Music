@@ -1,25 +1,12 @@
 from music21 import *
-import mido
-from mido import MidiFile
-import mirdata
-import os
-import plotly.express as px
-import sys
-import py_midicsv as pm
+from collections import Counter
 import numpy as np
 import glob
-import pretty_midi
-import libfmp.c1
-import libfmp.c3
-import libfmp.b
-import mir_eval
 from TIVlib import TIV
+from scipy import spatial
 import matplotlib.pyplot as plt
-from collections import Counter
-import pandas as pd
-from unidecode import unidecode
-from scipy.spatial.distance import cosine, euclidean
-from scipy.ndimage import gaussian_filter
+from operator import itemgetter
+from itertools import groupby
 
 # The full TIV library isn't importing correctly to the program, so here is a part of the TIV library.
 class TIV:
@@ -106,129 +93,118 @@ class TIV:
             results.append(distance)
         return results
 
+#Just to order list of TIV_Redux
+def sort_dist(dist):
+    return dist[1]
 
-def gaussian_blur(centroid_vector, sigma):
-    centroid_vector = gaussian_filter(centroid_vector, sigma=sigma)
-    return centroid_vector
-
-def get_peaks_hcdf(hcdf_function, rate_centroids_second, symbolic=True):
-    changes = [0]
-    hcdf_changes = []
-    last = 0
-    for i in range(2, hcdf_function.shape[0] - 1):
-        if hcdf_function[i - 1] < hcdf_function[i] and hcdf_function[i + 1] < hcdf_function[i]:
-            hcdf_changes.append(hcdf_function[i])
-            if not symbolic:
-                changes.append(i / rate_centroids_second)
-            else:
-                changes.append(i)
-            last = i
-    return np.array(changes), np.array(hcdf_changes)
-
-# 4 - Distance Calculation (Euclidean and Cosine)
-def distance_calc(centroid_point, distance):
-    dist = []
-    if distance == 'Euclidean':
-        for j in range(1, centroid_point.shape[1] - 1):
-            aux = 0
-            for i in range(0, centroid_point.shape[0]):
-                aux += ((centroid_point[i][j + 1] - centroid_point[i][j - 1]) ** 2)
-            aux = np.math.sqrt(aux)
-            dist.append(aux)
-
-    if distance == 'Cosine':
-        for j in range(1, centroid_point.shape[1] - 1):
-            cosine_distance = cosine(centroid_point[:, j - 1], centroid_point[:, j + 1])
-            dist.append(cosine_distance)
-    dist.append(0)
-
-    return np.array(dist)
-
-# Now we will need to take information from TIV. So we will need some additional functions
-def all_zero(vector):
-    for element in vector:
-        if element != 0:
-            return False
-    return True
-
-def real_imag(TIVector):
-    aux = []
-    for i in range(0, TIVector.shape[1]):
-        real_vector = []
-        imag_vector = []
-        for j in range(0, TIVector.shape[0]):
-            real_vector.append(TIVector[j][i].real)
-            imag_vector.append(TIVector[j][i].imag)
-        aux.append(real_vector)
-        aux.append(imag_vector)
-    return np.array(aux)
-
-def tonalIntervalSpace(chroma, symbolic=True):
-    centroid_vector = []
-    for i in range(0, chroma.shape[1]):
-        each_chroma = [chroma[j][i] for j in range(0, chroma.shape[0])]
-        each_chroma = np.array(each_chroma)
-        if all_zero(each_chroma):
-            centroid = [0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j]
-        else:
-            tonal = TIV.from_pcp(each_chroma, symbolic)          #Calculate the TIV for each chroma
-            #tonal.plot_TIV() #PLOT TIV for each chroma -> too expensive in terms of program's space
-            centroid = tonal.get_vector()
-        centroid_vector.append(centroid)
-    return real_imag(np.array(centroid_vector))
-
-def TIV_chroma(file, resolution = int):
-    midi_vector = pretty_midi.PrettyMIDI(file, resolution, initial_tempo=120)
-    chroma = midi_vector.get_chroma(resolution).transpose()
-    centroid_vector = tonalIntervalSpace(chroma, symbolic=True)
-    return centroid_vector
-
-
-def getDist(midiPitches, dist):
-    """
-    midiPitches: pitches to calculate the distance
-    dist: method to use as distance measuring (euclidian or cosine)
-    """
-    auxHist = Counter(midiPitches)
-    pitchClasses = [0] * 12
-
-    for pitch in auxHist:
+def distance_calc(pitches_chord, dist):
+    dist_list = []
+    hist = Counter(pitches_chord)
+    pitch_list = [0] * 12
+    for pitch in hist:
         index = pitch % 12
-        pitchClasses[index] += auxHist[pitch]
+        pitch_list[index] += hist[pitch]
+    TIV_vector = TIV.from_pcp(np.array(pitch_list))
 
-    songTIV = TIV.from_pcp(pitchClasses)
+    for i in range(len(pitches_chord)):
+        each_pitch = pitches_chord[i]
+        aux_vector = [0] * 12
+        aux_vector[each_pitch % 12] += 1
+        aux_vector = TIV.from_pcp(np.array(aux_vector))
+        distance = dist(TIV_vector.vector, aux_vector.vector)
+        dist_list.append((i, distance))
+    return dist_list
 
-    distArray = []
+#The aim is to only show the notes that are going to be cut by the reduction step
+#(Taking into account that the representation of each chord are only up to 3 notes maximum)
+def TIV_Redux(pitches_chord, dist):
+    dist_list = distance_calc(pitches_chord, dist)
+    dist_list.sort(key=sort_dist)
+    dist_reduced = dist_list[3:] #only show the notes that are going to be cut, reducing the chord
+    return dist_reduced
 
-    songLength = len(midiPitches)
+def pitches_redux(file):
+    midi_pitches = []
+    stream = converter.parse(file)
+    for part in stream.parts:
+        for note in part.recurse().getElementsByClass('Chord'):
+            midi_pitches.append([p.midi for p in note.pitches])
+    return midi_pitches
 
-    for i in range(songLength):
-        pitch = midiPitches[i]
+def time_info(file):
+    time_notes_rest = []
+    group = {}
+    stream = converter.parse(file)
+    for part in stream.parts:
+        for thisNote_note in part.recurse().getElementsByClass(note.Note):
+            time_notes_rest.append([thisNote_note.nameWithOctave, thisNote_note.quarterLength, thisNote_note.offset])
+        #for thisChord in part.recurse().getElementsByClass('Chord'):
+        #    for c in thisChord.notes:
+        #        time_notes_rest.append([c.nameWithOctave, c.quarterLength, c.offset])
+        for thisRest in part.recurse().getElementsByClass(note.Rest):
+            time_notes_rest.append([thisRest.name, thisRest.quarterLength, thisRest.offset])
+    time_notes_rest.sort(key=lambda i: i[2])
+    for name, x, y in time_notes_rest:
+        group.setdefault(y, []).append((name, x))
+    return group
 
-        aux = [0] * 12
-        aux[pitch % 12] += 1
-        aux = TIV.from_pcp(aux)
+def new_stream(file):
+    stream1 = converter.parse(file)
+    stream2 = stream.Stream(file)
+    m = pitches_redux(file)
+    t_info = time_info(file)
+    #print(t_info)
+    #for t in t_info:
+        #IN CASE OF CONSTRUCTING THE SCORE (HAVE SOME PROBLEMS THOUGH)
+    #    if t[0] == 'rest':
+    #        nr = note.Rest(t[0])
+    #        #nr.style.color = 'red'
+    #        stream1.insert(t[2], nr)
+    #    else:
+    #        nt = note.Note(t[0])
+    #        #nt.style.color = 'red'
+    #        stream1.insert(t[2], nt)
 
-        calcDist = dist(songTIV.vector, aux.vector)
-        distArray.append((i, calcDist))
+    notes_lst = []
+    for s in m:
+        red = TIV_Redux(s, spatial.distance.euclidean)
+        e = [x[0] for x in red]
+        n = [note.Note(s[i]) for i in e]
+        n_name = [note.Note(s[i]).nameWithOctave for i in e]
+        if n_name:
+            notes_lst.append(n_name)
+    print(notes_lst)
 
-    return distArray
+    times_offset = []
+    for key, value in t_info.items():
+        #print(key, value)
+        if len(value) > 3:
+            times_offset.append(key)
+    print(times_offset)
 
-def Tiv_Reduction(file, dist=str, level = float):
-    #level:0.25, 0.50 or 0.75 (reduction step)
+    final_list = zip(notes_lst , times_offset)
+    zipped_list = list(final_list)
+    #print(zipped_list)
 
-    #distArray = TIV_chroma(file, resolution = 28)
-    distArray = getDist(file, dist)
-    print(distArray)
-    lenArray = len(distArray)
-    slice = round(lenArray * level)
-    redux = distArray[:slice]
-    print(redux)
-    return redux
+    for i in range(len(zipped_list)):
+        for j in range(len(zipped_list[i][0])):
+            if len(zipped_list[i][0]) > 0:
+                note_zipped = note.Note(zipped_list[i][0][j])
+                #p = pitch.Pitch(note_zipped)
+                #n = note.Note(p)
+                note_zipped.style.color = 'pink'
+                stream1.insert(zipped_list[i][1], note_zipped)
+                stream2.insert(zipped_list[i][1], note_zipped)
+    #stream1.show()
+    stream2.show() #Just to see the notes that are going to be cutted
+    return stream1
 
-path_BPS = './Chordify/BPS'
-for file in glob.glob(path_BPS+ './*MIDI.mid'):
-    centroid = TIV_chroma(file, resolution = 28)
-    #print(centroid)
-    c = Tiv_Reduction(centroid, 'Euclidean' ,0.5)
-    print(c)
+#path_Bach = './Datasets/Bach_Preludes'
+#for file in glob.glob(path_Bach + './*.mid'):
+#    t = time_info(file)
+#    print(t)
+#    s = new_stream(file)
+#    print(s)
+
+s = new_stream('./Datasets/Bach_Preludes/BachPrelude_05.mid')
+#s.show()
