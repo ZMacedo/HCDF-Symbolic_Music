@@ -1,12 +1,10 @@
 from music21 import *
 from collections import Counter
 import numpy as np
-import glob
 from TIVlib import TIV
 from scipy import spatial
 import matplotlib.pyplot as plt
-from operator import itemgetter
-from itertools import groupby
+import itertools
 
 # The full TIV library isn't importing correctly to the program, so here is a part of the TIV library.
 class TIV:
@@ -125,45 +123,35 @@ def TIV_Redux(pitches_chord, dist):
 
 def pitches_redux(file):
     midi_pitches = []
+    duration_pitches = []
+    offset_pitches = []
+    index_pitches = []
     stream = converter.parse(file)
+    #for part in stream.parts:
+    #    for chords in part.recurse().getElementsByClass('Chord'):
+    #        midi_pitches.append([p.midi for p in chords.pitches])
+    #        duration_pitches.append([p.duration.quarterLength for p in chords.notes])
+    #        offset_pitches.append([p.offset for p in chords.notes])
     for part in stream.parts:
-        for note in part.recurse().getElementsByClass('Chord'):
-            midi_pitches.append([p.midi for p in note.pitches])
-    return midi_pitches
+        for element in part.flat.notes:
+            if isinstance(element, chord.Chord):
+                midi_pitches.append([n.pitch.midi for n in element])
+                duration_pitches.append([element.quarterLength for n in element])
+                offset_pitches.append([element.offset for n in element])
 
-def time_info(file):
-    time_notes_rest = []
-    group = {}
-    stream = converter.parse(file)
-    for part in stream.parts:
-        for thisNote_note in part.recurse().getElementsByClass(note.Note):
-            time_notes_rest.append([thisNote_note.nameWithOctave, thisNote_note.quarterLength, thisNote_note.offset])
-        #for thisChord in part.recurse().getElementsByClass('Chord'):
-        #    for c in thisChord.notes:
-        #        time_notes_rest.append([c.nameWithOctave, c.quarterLength, c.offset])
-        for thisRest in part.recurse().getElementsByClass(note.Rest):
-            time_notes_rest.append([thisRest.name, thisRest.quarterLength, thisRest.offset])
-    time_notes_rest.sort(key=lambda i: i[2])
-    for name, x, y in time_notes_rest:
-        group.setdefault(y, []).append((name, x))
-    return group
+    midi_pitches.sort()
+    duration_pitches.sort()
+    offset_pitches.sort()
+    return midi_pitches, duration_pitches, offset_pitches
 
 def new_stream(file):
     stream1 = converter.parse(file)
-    stream2 = stream.Stream(file)
-    m = pitches_redux(file)
-    t_info = time_info(file)
-    #print(t_info)
-    #for t in t_info:
-        #IN CASE OF CONSTRUCTING THE SCORE (HAVE SOME PROBLEMS THOUGH)
-    #    if t[0] == 'rest':
-    #        nr = note.Rest(t[0])
-    #        #nr.style.color = 'red'
-    #        stream1.insert(t[2], nr)
-    #    else:
-    #        nt = note.Note(t[0])
-    #        #nt.style.color = 'red'
-    #        stream1.insert(t[2], nt)
+    stream2 = converter.parse(file)
+
+    m, d, o = pitches_redux(file)
+    print(m)
+    print(d)
+    print(o)
 
     notes_lst = []
     for s in m:
@@ -173,38 +161,42 @@ def new_stream(file):
         n_name = [note.Note(s[i]).nameWithOctave for i in e]
         if n_name:
             notes_lst.append(n_name)
+    notes_lst.sort()
     print(notes_lst)
 
     times_offset = []
-    for key, value in t_info.items():
-        #print(key, value)
-        if len(value) > 3:
-            times_offset.append(key)
+    for value in o:
+        if len(value) >= 4:
+            times_offset.append(value[0])
+    times_offset.sort()
     print(times_offset)
 
-    final_list = zip(notes_lst , times_offset)
+    final_list = zip(notes_lst,times_offset)
     zipped_list = list(final_list)
-    #print(zipped_list)
+    zipped_list.sort(key=lambda x: x[1])
+    print(zipped_list)
 
     for i in range(len(zipped_list)):
         for j in range(len(zipped_list[i][0])):
             if len(zipped_list[i][0]) > 0:
                 note_zipped = note.Note(zipped_list[i][0][j])
-                #p = pitch.Pitch(note_zipped)
-                #n = note.Note(p)
-                note_zipped.style.color = 'pink'
-                stream1.insert(zipped_list[i][1], note_zipped)
+                stream1.remove(note_zipped)
+                note_zipped.style.color = 'red'
                 stream2.insert(zipped_list[i][1], note_zipped)
-    #stream1.show()
-    stream2.show() #Just to see the notes that are going to be cutted
-    return stream1
 
-#path_Bach = './Datasets/Bach_Preludes'
-#for file in glob.glob(path_Bach + './*.mid'):
-#    t = time_info(file)
-#    print(t)
+    stream1 = stream1.flat
+    stream2 = stream2.flat
+    return stream1, stream2
+
+#path_Bach = './Scores/Bach_Preludes'
+#for file in glob.glob(path_Bach + './*.mxl'):
+#    print(str(file))
 #    s = new_stream(file)
-#    print(s)
+#    s.show()
+#    print('---------')
 
-s = new_stream('./Datasets/Bach_Preludes/BachPrelude_05.mid')
-#s.show()
+#s = new_stream('./Datasets/Bach_Preludes/BachPrelude_05.mid')
+#s1, s2 = new_stream('./Scores_120/Tavern/Mozart/K179.mxl')
+s1, s2 = new_stream('./Scores_120/Bach_Preludes/BachPrelude_05.mxl')
+s1.show()
+s2.show()
