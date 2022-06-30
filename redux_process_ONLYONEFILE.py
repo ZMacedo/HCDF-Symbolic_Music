@@ -1,6 +1,7 @@
 from music21 import *
 from collections import Counter
 import numpy as np
+import pandas as pd
 from TIVlib import TIV
 from scipy import spatial
 import matplotlib.pyplot as plt
@@ -121,94 +122,67 @@ def TIV_Redux(pitches_chord, dist):
     dist_reduced = dist_list[3:] #only show the notes that are going to be cut, reducing the chord
     return dist_reduced
 
-def pitches_redux(file):
-    midi_pitches = []
-    duration_pitches = []
-    offset_pitches = []
-    stream = converter.parse(file)
+b = corpus.parse('bwv66.6')
+bChords = b.chordify()
+bChords_PAINTED_NOTES = b.chordify()
+bChords_REDUCED_SCORE = b.chordify()
 
-    for part in stream.parts:
-        for element in part.flat.notes:
-            if isinstance(element, chord.Chord):
-                midi_pitches.append([n.pitch.midi for n in element])
-                duration_pitches.append([element.quarterLength for n in element])
-                offset_pitches.append([element.offset for n in element])
+midi_pitches = []
+duration_pitches = []
+offset_pitches = []
 
-    return midi_pitches, duration_pitches, offset_pitches
+for chord in bChords.flatten().getElementsByClass('Chord'):
+    #chord = chord.removeRedundantPitchNames()
+    midi_pitches.append([n.pitch.midi for n in chord.notes])
+    duration_pitches.append([n.quarterLength for n in chord.notes])
+    offset_pitches.append([chord.offset for n in chord])
 
-#def indexes(file):
-#    stream = converter.parse(file)
-#    index_pitches = []
-#    for part in stream.parts:
-#        for element in part.flat.notes:
-#            if isinstance(element, chord.Chord):
-#                for n in element:
-#                    index_pitches.append([element.chordTablesAddress[1], n])
+#print(midi_pitches)
+#print(duration_pitches)
+#print(offset_pitches)
 
-#    return index_pitches
+reduced_notes_lst = []
+reduced_chords_lst = []
+for s in midi_pitches:
+    ss = s
+    red_notes = TIV_Redux(ss, spatial.distance.euclidean)
+    e = [x[0] for x in red_notes]
+    n_name = [note.Note(ss[i]).nameWithOctave for i in e]
+    if n_name:
+        reduced_notes_lst.append(n_name)
 
-def new_stream(file):
-    stream1 = converter.parse(file)
-    stream_cutted = converter.parse(file)
+    n = [s[i] for i in e]
+    for element in n:
+        if element in s:
+            s.remove(element)
+    reduced_chords_lst.append(s)
 
-    m, d, o = pitches_redux(file)
-    print(m)
-    print(d)
-    print(o)
+bChords_REDUCED_SCORE.replace(ss,s)
+#for i in range(len(offset_pitches)):
+#    bChords_REDUCED_SCORE.insertIntoNoteOrChord(offset_pitches[i][0], note.Note(reduced_chords_lst[i][j]))
+bChords_REDUCED_SCORE = bChords_REDUCED_SCORE.flat
 
-    #idx = indexes(file)
-    #print(idx)
+times_offset = []
+for value in offset_pitches:
+    if len(value) >= 4:
+        times_offset.append(value[0])
+#times_offset.sort()
+#print(times_offset)
 
-    reduced_notes_lst = []
-    for s in m:
-        red_notes = TIV_Redux(s, spatial.distance.euclidean)
-        e = [x[0] for x in red_notes]
-        n = [note.Note(s[i]) for i in e]
-        n_name = [note.Note(s[i]).nameWithOctave for i in e]
-        if n_name:
-            reduced_notes_lst.append(n_name)
-    #reduced_notes_lst.sort()
-    print(reduced_notes_lst)
+final_reduced_list = zip(reduced_notes_lst, times_offset)
+zipped_reduced_list = list(final_reduced_list)
+zipped_reduced_list.sort(key=lambda x: x[1])
+#print(zipped_reduced_list)
 
-    times_offset = []
-    for value in o:
-        if len(value) >= 4:
-            times_offset.append(value[0])
-    #times_offset.sort()
-    print(times_offset)
+for i in range(len(zipped_reduced_list)):
+    for j in range(len(zipped_reduced_list[i][0])):
+        if len(zipped_reduced_list[i][0]) > 0:
+            note_zipped = note.Note(zipped_reduced_list[i][0][j])
+            note_zipped.style.color = 'yellow'
+            bChords_PAINTED_NOTES.insert(zipped_reduced_list[i][1], note_zipped)
 
-    final_reduced_list = zip(reduced_notes_lst,times_offset)
-    zipped_reduced_list = list(final_reduced_list)
-    zipped_reduced_list.sort(key=lambda x: x[1])
-    print(zipped_reduced_list)
+bChords_PAINTED_NOTES = bChords_PAINTED_NOTES.flat
 
-    lst_notes = []
-    for i in range(len(zipped_reduced_list)):
-        for j in range(len(zipped_reduced_list[i][0])):
-            if len(zipped_reduced_list[i][0]) > 0:
-                note_zipped = note.Note(zipped_reduced_list[i][0][j])
-                lst_notes.append(note_zipped)
-                #stream_cutted.remove(note_zipped)
-                note_zipped.style.color = 'yellow'
-                stream1.insert(zipped_reduced_list[i][1], note_zipped)
-            stream_cutted.remove(lst_notes)
-
-    stream1 = stream1.flat
-    stream1.write('musicxml', str(file) + '_NOTATED.mxl')
-    stream_cutted = stream_cutted.flat
-    return stream1, stream_cutted
-
-#path_Bach = './Scores/Bach_Preludes'
-#for file in glob.glob(path_Bach + './*.mxl'):
-#    print(str(file))
-#    s1, s_cut = new_stream(file)
-#    #s1.show()
-#    s1.write('musicxml', str(file) + '_NOTATED.mxl')
-#    print('---------')
-
-#s1, s_cut = new_stream('./Scores_120/Tavern/Mozart/K179.mxl')
-s1, s_cut = new_stream('./Scores_120/Mozart_Requiem_in_D_minor_K_626_-_01_REQUIEM.mxl')
-#s1, s_cut = new_stream('./Scores_120/Bach_Preludes/BachPrelude_05.mxl')
-s1.show()
-#s1.write('musicxml', str(s1) + '_NOTATED.mxl')
-#s_cut.show()
+#bChords.show()
+#bChords_PAINTED_NOTES.show()
+bChords_REDUCED_SCORE.show()
