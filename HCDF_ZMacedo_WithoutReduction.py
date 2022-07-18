@@ -1,20 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 # # Symbolic Harmonic Change Detection in the Tonal Interval Space
-
 # The detection of chord boundaries (onset or beginning or chords in the musical surface) is typically addressed within Music Information Retrieval as harmonic change detection. Existing solutions are known to improve complex systems for automatic chord detection as a preprocessing segmentation stage. This project aims at improving the performance of harmonic change detection by adopting a tree-based representation for reducing the complex structure of symbolic music manifestations to an n-chord representation, targeting the basic underlying triadic structure of Western tonal harmony.
-
 # This is the code implemented to achieve the main objectives referred in the dissertation "Symbolic Harmonic Change Detection in the Tonal Interval Space" by José Macedo, with Gilberto Bernardes as Supervisor and Pedro Ramoneda as Co-Supervisor. 
 
-# In[1]:
-
-
-from music21 import *
-import mido
-from mido import MidiFile
-import mirdata
-import os
 import plotly.express as px
 import sys
 import numpy as np
@@ -24,25 +11,16 @@ import libfmp.b
 import libfmp.c1
 import libfmp.c3
 import mir_eval
-import py_midicsv as pm
 from TIVlib import TIV
 import matplotlib.pyplot as plt
 import pandas as pd
-import csv
-from unidecode import unidecode
 from scipy.spatial.distance import cosine, euclidean
 from scipy.ndimage import gaussian_filter
-#np.seterr(all='raise')
-
 
 # # TIS&TIV - Tonal Interval Space & Tonal Interval Vectors 
-# 
 # A truncated version of TIV library [1].
-# 
-# [1] - Ramires, A., Bernardes, G., Davies, M.E., & Serra, X. (2020). TIV.lib: an open-source library for the tonal description of musical audio. ArXiv, abs/2008.11529.
 
 #The full TIV library isn't importing correctly to the program, so here is a part of the TIV library.
-
 class TIV:
     weights_symbolic = [2, 11, 17, 16, 19, 7]
     weights_audio = [3, 8, 11.5, 15, 14.5, 7.5]
@@ -127,28 +105,8 @@ class TIV:
             results.append(distance)
         return results
 
-   # @classmethod
-   # def euclidean(cls, tiv1, tiv2):
-   #     return np.linalg.norm(tiv1.vector - tiv2.vector)
-
-   # @classmethod
-   # def cosine(cls, tiv1, tiv2):
-   #     a = np.concatenate((tiv1.vector.real, tiv1.vector.imag), axis=0)
-   #     b = np.concatenate((tiv2.vector.real, tiv2.vector.imag), axis=0)
-   #     if all_zero(a) or all_zero(b):
-   #         distance_computed = euclidean(a, b)
-   #     else:
-   #         distance_computed = cosine(a, b)
-   #     return distance_computed
-
-
-# # Auxiliary Functions 
-# 
+# # Auxiliary Functions
 # By Pedro Ramoneda in "Harmonic Change Detection from Musical Audio"
-
-# In[3]:
-
-
 def gaussian_blur(centroid_vector, sigma):
     centroid_vector = gaussian_filter(centroid_vector, sigma=sigma)
     return centroid_vector
@@ -187,9 +145,6 @@ def distance_calc(centroid_point, distance):
     return np.array(dist)
 
 
-# In[4]:
-
-
 #Now we will need to take information from TIV. So we will need some additional functions
 def all_zero(vector):
     for element in vector:
@@ -223,12 +178,7 @@ def tonalIntervalSpace(chroma, symbolic=True):
         centroid_vector.append(centroid)
     return real_imag(np.array(centroid_vector))
 
-
-# In[5]:
-
-
 def harmonic_change(chroma: list, window_size: int=2048, symbolic: bool=True, sigma: int = 5, dist: str = 'euclidean'):
-#     pdb.set_trace()
     chroma = np.array(chroma).transpose()
     centroid_vector = tonalIntervalSpace(chroma, symbolic=True)
 
@@ -242,19 +192,10 @@ def harmonic_change(chroma: list, window_size: int=2048, symbolic: bool=True, si
 
     return changes, hcdf_changes, harmonic_function
 
-
-# In[6]:
-
-
 np.set_printoptions(threshold=sys.maxsize)
 
-
 # # Piano Roll Representations
-# 
 # In order to represent musical scores for computational analysis, two-dimensional piano roll graphics (with columns being time steps and rows being pitches) are provided. It also gives a sense of pitch variation through all time steps.
-
-# In[7]:
-
 
 def midi_pianoRoll(file):
     midi_data = pretty_midi.PrettyMIDI(file)
@@ -266,25 +207,13 @@ def midi_pianoRoll(file):
 #    s = music21.converter.parse(file)
 #    s.plot('pianoroll')
 
-
 #for file in file_list_BPS:
 #    midi_pianoRoll(file) ###IN CASE WE WANT TO PLOT PIANO ROLL GRAPHICS FOR BPS DATASET
 
 #for file in file_list_ABC:
 #    midi_pianoRoll(file) ###IN CASE WE WANT TO PLOT PIANO ROLL GRAPHICS FOR ABC DATASET
 
-
 # # Chroma Vectors
-# 
-# Chroma Vectors play an important role in music processing. Although mainly used for audio, it refers the cardinality of each pitch class in symbolic music (where the conotation "Harmonic Pitch Class Profile" is more suitable).
-# 
-# Given that music21 can't produce this kind of graphic, this was produced by libfmp library [2].
-# 
-# [2] - Meinard Müller and Frank Zalkow. libfmp: A Python Package for Fundamentals of Music Processing. Journal of Open Source Software (JOSS), 6(63), 2021.
-
-# In[8]:
-
-
 def chromagram(midi_file):
     midi_data = pretty_midi.PrettyMIDI(midi_file)
     score = libfmp.c1.midi_to_list(midi_data)
@@ -303,18 +232,6 @@ def chromagram(midi_file):
 
     return chroma
 
-#for file in file_list_BPS:
-#    chroma_bps = chromagram(file) 
-    
-#for file in file_list_ABC:
-#    chroma_abc = chromagram(file) ###JUST IN CASE WE WANT TO PLOT CHROMAGRAMS ABC DATASET
-
-
-# In[47]:
-
-
-import pdb
-
 def hcdf_changes_gt(csv_file):
     if csv_file.endswith(".xlsx"):
         df = pd.read_excel(csv_file, header=None)
@@ -330,14 +247,14 @@ def HCDF(file, csv_file, sigma=int, distance='Euclidean', resolution = 28):
     # read midi
     midi_vector = pretty_midi.PrettyMIDI(file, resolution, initial_tempo=120)
     
-    # compute chroma     
+    # Compute chroma
     chroma_vector = midi_vector.get_chroma(resolution).transpose()
     
-    # predicted harmonic changes
+    # Predicted harmonic changes
     changes, hcdf_changes, harmonic_function = harmonic_change(chroma=chroma_vector, symbolic=True, sigma=sigma, dist = distance)
     changes = changes / resolution
     
-    # ground truth harmonic changes
+    # Ground truth harmonic changes
     changes_ground_truth = hcdf_changes_gt(csv_file)
     
     #Plot
@@ -380,27 +297,25 @@ def tune_sigma_plot(evaluation_result):
     fig = px.line(df, x="sigma", y="value", color="metric", render_mode="svg")
     fig.show()
 
-def compute_hcdf(lst1, lst2, distance, sigma):
+def compute_hcdf(lst1, lst2, distance, sigma, resolution):
     f_sc_results = []
     prec_results = []
     rec_results = []
     for file, file2 in zip(lst1, lst2):
-        # print(file)
-        # print(file2)
 
-        hcdf = HCDF(file, file2, sigma=sigma, distance=distance, resolution=28)
+        hcdf = HCDF(file, file2, sigma=sigma, distance=distance, resolution=resolution)
         f_sc_results.append(hcdf[0])
         prec_results.append(hcdf[1])
         rec_results.append(hcdf[2])
 
     return np.mean(np.array(f_sc_results)), np.mean(np.array(prec_results)), np.mean(np.array(rec_results))
 
-def results(lst1,lst2):
+def results(lst1,lst2, resolution):
     for file, file2 in zip(lst1, lst2):
         results_euclidean = {
-            sigma: HCDF(file, file2, sigma=sigma, distance='Euclidean') for sigma in range(0, 50, 10)}
+            sigma: HCDF(file, file2, sigma=sigma, distance='Euclidean',resolution = resolution) for sigma in range(0, 50, 10)}
         results_cosine = {
-            sigma: HCDF(file, file2, sigma=sigma, distance='Cosine') for sigma in range(0, 50, 10)}
+            sigma: HCDF(file, file2, sigma=sigma, distance='Cosine',resolution = resolution) for sigma in range(0, 50, 10)}
     return results_euclidean, results_cosine
 
 # # HCDF in BPS Dataset
@@ -416,17 +331,16 @@ for file in file_csv_BPS:
     lst2_bps.append(file)
 
 print("BPS - Euclidean")
-f_sc_bps_e, p_bps_e, r_bps_e = compute_hcdf(lst1_bps,lst2_bps, 'Euclidean', 10)
+f_sc_bps_e, p_bps_e, r_bps_e = compute_hcdf(lst1_bps,lst2_bps, 'Euclidean', 10,resolution = 28)
 print(f_sc_bps_e, p_bps_e, r_bps_e)
 print("BPS - Cosine")
-f_sc_bps_c, p_bps_c, r_bps_c = compute_hcdf(lst1_bps,lst2_bps, 'Cosine', 10)
+f_sc_bps_c, p_bps_c, r_bps_c = compute_hcdf(lst1_bps,lst2_bps, 'Cosine', 10,resolution = 28)
 print(f_sc_bps_c, p_bps_c, r_bps_c)
 
-results_euclidean_BPS, results_cosine_BPS = results(lst1_bps,lst2_bps)
+results_euclidean_BPS, results_cosine_BPS = results(lst1_bps,lst2_bps,resolution = 28)
 
 tune_sigma_plot(results_euclidean_BPS)
 tune_sigma_plot(results_cosine_BPS)
-
 
 # # # HCDF in Tavern Dataset
 # # TAVERN consists of three types of files for each musical phrase for each annotator (A and B)
@@ -455,52 +369,52 @@ for file in glob.glob(path_Tavern + './Mozart/*B.csv'):
 
 # #Beethoven with Annotator A
 print("Beethoven with Annotator A - Euclidean")
-f_sc_beethovenA_e, p_beethovenA_e, r_beethovenA_e = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenA, 'Euclidean', 10)
+f_sc_beethovenA_e, p_beethovenA_e, r_beethovenA_e = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenA, 'Euclidean', 10,resolution = 28)
 print(f_sc_beethovenA_e, p_beethovenA_e, r_beethovenA_e)
 print("Beethoven with Annotator A - Cosine")
-f_sc_beethovenA_c, p_beethovenA_c, r_beethovenA_c = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenA, 'Cosine', 10)
+f_sc_beethovenA_c, p_beethovenA_c, r_beethovenA_c = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenA, 'Cosine', 10,resolution = 28)
 print(f_sc_beethovenA_c, p_beethovenA_c, r_beethovenA_c)
 
-results_euclidean_TAVERN_Beethoven_A, results_cosine_TAVERN_Beethoven_A= results(lst_midi_beethoven,lst_csv_beethovenA)
+results_euclidean_TAVERN_Beethoven_A, results_cosine_TAVERN_Beethoven_A= results(lst_midi_beethoven,lst_csv_beethovenA,resolution = 28)
 
 tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
 tune_sigma_plot(results_cosine_TAVERN_Beethoven_A)
 
 # #Beethoven with Annotator B
 print("Beethoven with Annotator B - Euclidean")
-f_sc_beethovenB_e, p_beethovenB_e, r_beethovenB_e = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenB, 'Euclidean', 10)
+f_sc_beethovenB_e, p_beethovenB_e, r_beethovenB_e = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenB, 'Euclidean', 10,resolution = 28)
 print(f_sc_beethovenB_e, p_beethovenB_e, r_beethovenB_e)
 print("Beethoven with Annotator B - Cosine")
-f_sc_beethovenB_c, p_beethovenB_c, r_beethovenB_c = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenB, 'Cosine', 10)
+f_sc_beethovenB_c, p_beethovenB_c, r_beethovenB_c = compute_hcdf(lst_midi_beethoven,lst_csv_beethovenB, 'Cosine', 10,resolution = 28)
 print(f_sc_beethovenB_c, p_beethovenB_c, r_beethovenB_c)
 
-results_euclidean_TAVERN_Beethoven_B, results_cosine_TAVERN_Beethoven_B= results(lst_midi_beethoven,lst_csv_beethovenB)
+results_euclidean_TAVERN_Beethoven_B, results_cosine_TAVERN_Beethoven_B= results(lst_midi_beethoven,lst_csv_beethovenB,resolution = 28)
 
 tune_sigma_plot(results_cosine_TAVERN_Beethoven_B)
 tune_sigma_plot(results_cosine_TAVERN_Beethoven_B)
 
 # #Mozart with Annotator A
 print("Mozart with Annotator A - Euclidean")
-f_sc_mozartA_e, p_mozartA_e, r_mozartA_e = compute_hcdf(lst_midi_mozart,lst_csv_mozartA, 'Euclidean', 10)
+f_sc_mozartA_e, p_mozartA_e, r_mozartA_e = compute_hcdf(lst_midi_mozart,lst_csv_mozartA, 'Euclidean', 10,resolution = 28)
 print(f_sc_mozartA_e, p_mozartA_e, r_mozartA_e)
 print("Mozart with Annotator A - Cosine")
-f_sc_mozartA_c, p_mozartA_c, r_mozartA_c = compute_hcdf(lst_midi_mozart,lst_csv_mozartA, 'Cosine', 10)
+f_sc_mozartA_c, p_mozartA_c, r_mozartA_c = compute_hcdf(lst_midi_mozart,lst_csv_mozartA, 'Cosine', 10,resolution = 28)
 print(f_sc_mozartA_c, p_mozartA_c, r_mozartA_c)
 
-results_euclidean_TAVERN_MozartA, results_cosine_TAVERN_MozartA= results(lst_midi_mozart,lst_csv_mozartA)
+results_euclidean_TAVERN_MozartA, results_cosine_TAVERN_MozartA= results(lst_midi_mozart,lst_csv_mozartA,resolution = 28)
 
 tune_sigma_plot(results_euclidean_TAVERN_MozartA)
 tune_sigma_plot(results_cosine_TAVERN_MozartA)
 
 # #Mozart with Annotator B
 print("Mozart with Annotator B - Euclidean")
-f_sc_mozartB_e, p_mozartB_e, r_mozartB_e = compute_hcdf(lst_midi_mozart,lst_csv_mozartB, 'Euclidean', 10)
+f_sc_mozartB_e, p_mozartB_e, r_mozartB_e = compute_hcdf(lst_midi_mozart,lst_csv_mozartB, 'Euclidean', 10,resolution = 28)
 print(f_sc_mozartB_e, p_mozartB_e, r_mozartB_e)
 print("Mozart with Annotator B - Cosine")
-f_sc_mozartB_c, p_mozartB_c, r_mozartB_c = compute_hcdf(lst_midi_mozart,lst_csv_mozartB, 'Cosine', 10)
+f_sc_mozartB_c, p_mozartB_c, r_mozartB_c = compute_hcdf(lst_midi_mozart,lst_csv_mozartB, 'Cosine', 10,resolution = 28)
 print(f_sc_mozartB_c, p_mozartB_c, r_mozartB_c)
 
-results_euclidean_TAVERN_MozartB, results_cosine_TAVERN_MozartB= results(lst_midi_mozart,lst_csv_mozartB)
+results_euclidean_TAVERN_MozartB, results_cosine_TAVERN_MozartB= results(lst_midi_mozart,lst_csv_mozartB,resolution = 28)
 
 tune_sigma_plot(results_euclidean_TAVERN_MozartB)
 tune_sigma_plot(results_cosine_TAVERN_MozartB)
@@ -516,13 +430,13 @@ for file in glob.glob(path_Bach_Preludes + './*.csv'):
     csv_bach.append(file)
 
 print("Bach Preludes - Euclidean")
-f_sc_bach_preludes_e, p_bach_preludes_e, r_bach_preludes_e = compute_hcdf(midi_bach,csv_bach, 'Euclidean', 10)
+f_sc_bach_preludes_e, p_bach_preludes_e, r_bach_preludes_e = compute_hcdf(midi_bach,csv_bach, 'Euclidean', 10,resolution = 28)
 print(f_sc_bach_preludes_e, p_bach_preludes_e, r_bach_preludes_e)
 print("Bach Preludes - Cosine")
-f_sc_bach_preludes_c, p_bach_preludes_c, r_bach_preludes_c = compute_hcdf(midi_bach,csv_bach, 'Cosine', 10)
+f_sc_bach_preludes_c, p_bach_preludes_c, r_bach_preludes_c = compute_hcdf(midi_bach,csv_bach, 'Cosine', 10,resolution = 28)
 print(f_sc_bach_preludes_c, p_bach_preludes_c, r_bach_preludes_c)
 
-results_euclidean_Bach_Prelude, results_cosine_Bach_Prelude= results(midi_bach,csv_bach)
+results_euclidean_Bach_Prelude, results_cosine_Bach_Prelude= results(midi_bach,csv_bach,resolution = 28)
 
 tune_sigma_plot(results_euclidean_Bach_Prelude)
 tune_sigma_plot(results_cosine_Bach_Prelude)
@@ -538,62 +452,13 @@ for file in glob.glob(path_ABC_Beethoven_Quartets + './*.csv'):
     csv_beeQ.append(file)
 
 print("Beethoven Quartets (ABC) - Euclidean")
-f_sc_beeQ_e, p_beeQ_e, r_beeQ_e = compute_hcdf(midi_beeQ,csv_beeQ, 'Euclidean', 10)
+f_sc_beeQ_e, p_beeQ_e, r_beeQ_e = compute_hcdf(midi_beeQ,csv_beeQ, 'Euclidean', 10,resolution = 28)
 print(f_sc_beeQ_e, p_beeQ_e, r_beeQ_e)
 print("Beethoven Quartets (ABC) - Cosine")
-f_sc_beeQ_c, p_beeQ_c, r_beeQ_c = compute_hcdf(midi_beeQ,csv_beeQ, 'Cosine', 10)
+f_sc_beeQ_c, p_beeQ_c, r_beeQ_c = compute_hcdf(midi_beeQ,csv_beeQ, 'Cosine', 10,resolution = 28)
 print(f_sc_beeQ_c, p_beeQ_c, r_beeQ_c)
 
-results_euclidean_Beethoven_Quartets, results_cosine_Beethoven_Quartets = results(midi_beeQ,csv_beeQ)
+results_euclidean_Beethoven_Quartets, results_cosine_Beethoven_Quartets = results(midi_beeQ,csv_beeQ,resolution = 28)
 
 tune_sigma_plot(results_euclidean_Beethoven_Quartets)
 tune_sigma_plot(results_cosine_Beethoven_Quartets)
-
-# # # HCDF in Haydn20 Dataset
-#path_haydn = './Datasets/Haydn_Op20/op20'
-# #file_list_kern = glob.glob(path_haydn + './***/**/*.krn')
-
-#for file in file_list_kern:
-#    if file.endswith('_tsroot.krn'):
-#        continue
-#    else:
-#        print(file)
-#        s = converter.parse(file)
-#        print(s.duration)
-        #s.write("txt", str(file) + '_TXT.txt')
-        #s.write("midi", str(file) + '_MIDI.mid')
-        #csv = pm.midi_to_csv(str(file) + '_MIDI.mid')
-        #with open(str(file) + '_CSV.csv', "w") as f:
-        #f.writelines(csv)
-        #with open(str(file) + '_time_onsets.csv', "w") as f:
-        #f.writelines(csv)
-
-#def csv_time_pitch(csv_file):
-#    df = pd.read_csv(csv_file, header=None, sep='\n')
-#    df = df[0].str.split(',', expand=True)
-#    df = df[0].apply(str).astype(str).str.replace(',', '')
-#    df[1] = pd.to_numeric(df[1], errors='coerce').div(1024)
-#    df1 = df[df[2].str.contains("Note_on") == True]
-#    #df1 = df1.filter(items=[1, 4]) #If we want Time and Pitch
-#    df_time = df1.filter(items=[1]) #Just onset times
-#    df_time.sort()
-#    return df_time
-
-#midi_haydn20 = list()
-#csv_haydn20 = list()
-#for file in glob.glob(path_haydn + '/*.mid'):
-#    midi_haydn20.append(file)
-#for csv_file in glob.glob(path_haydn + '/***/**/*time_onsets.csv'):
-#    csv_haydn20.append(csv)
-
-#print("Haydn20 - Euclidean")
-#f_sc_haydn20_e, p_haydn20_e, r_haydn20_e = compute_hcdf(midi_haydn20,csv_haydn20, 'Euclidean', 10)
-#print(f_sc_haydn20_e, p_haydn20_e, r_haydn20_e)
-#print("Haydn20 - Cosine")
-#f_sc_haydn20_c, p_haydn20_c, r_haydn20_c = compute_hcdf(midi_haydn20,csv_haydn20, 'Cosine', 10)
-#print(f_sc_haydn20_c, p_haydn20_c, r_haydn20_c)
-
-#results_euclidean_Haydn20, results_cosine_Haydn20 = results(midi_haydn20,csv_haydn20)
-
-#tune_sigma_plot(results_euclidean_Haydn20)
-#tune_sigma_plot(results_cosine_Haydn20)
